@@ -2,21 +2,21 @@
 import PackageDescription
 
 let package = Package(
-	name: "BufferStream",
+	name: "SimpleStream",
 	products: [
 		.library(
-			name: "BufferStream",
-			targets: ["BufferStream"]
+			name: "SimpleStream",
+			targets: ["SimpleStream"]
 		)
 	],
 	targets: [
 		.target(
-			name: "BufferStream",
+			name: "SimpleStream",
 			dependencies: []
 		),
 		.testTarget(
-			name: "BufferStreamTests",
-			dependencies: ["BufferStream"]
+			name: "SimpleStreamTests",
+			dependencies: ["SimpleStream"]
 		)
 	]
 )

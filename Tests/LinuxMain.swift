@@ -1,13 +1,13 @@
 import XCTest
 
-@testable import BufferStreamTests
+@testable import SimpleStreamTests
 
 var tests: [XCTestCaseEntry] = [
 	testCase([
 	]),
 	testCase([
-		("testReadSmallerThanBufferData", BufferStreamTests.testReadSmallerThanBufferData),
-		("testReadBiggerThanBufferData", BufferStreamTests.testReadBiggerThanBufferData),
+		("testReadSmallerThanBufferData", SimpleStreamTests.testReadSmallerThanBufferData),
+		("testReadBiggerThanBufferData", SimpleStreamTests.testReadBiggerThanBufferData),
 	]),
 	testCase([
 	]),

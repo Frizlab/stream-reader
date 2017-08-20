@@ -1,5 +1,5 @@
 /*
- * BufferStream.swift
+ * SimpleStream.swift
  * BSONSerialization
  *
  * Created by François Lamboley on 12/4/16.
@@ -10,7 +10,7 @@ import Foundation
 
 
 
-public enum BufferStreamError : Error {
+public enum SimpleStreamError : Error {
 	
 	/** The stream ended before the required data size could be read. */
 	case noMoreData
@@ -43,7 +43,7 @@ public enum BufferStreamError : Error {
 
 In the description of the different cases, we'll use a common example:
 
-- We'll use a `BufferedInputStream`, which uses a cache to hold some of the data
+- We'll use a `SimpleInputStream`, which uses a cache to hold some of the data
 read from the stream;
 - The delimiters will be (in this order):
    - `"45"`
@@ -53,13 +53,13 @@ read from the stream;
 
 - The full data in the stream will be: `"0123456789"`;
 - In the cache, we'll only have `"01234"` read. */
-public enum BufferStreamDelimiterMatchingMode {
+public enum SimpleStreamDelimiterMatchingMode {
 	
 	/** The lightest match algorithm (usually). In the given example, the third
-	delimiter (`"234"`) will match, because the `BufferedInputStream` will first
-	try to match the delimiters against what it already have in memory.
+	delimiter (`"234"`) will match, because the `SimpleStream` will first try to
+	match the delimiters against what it already have in memory.
 	
-	- Note: This is our current implementation of this type of `BufferStream`.
+	- Note: This is our current implementation of this type of `SimpleStream`.
 	However, any delimiter can match, the implementation is really up to the
 	implementer… However, implementers should keep in mind the goal of this
 	matching mode, which is to match and return the data in the quickest way
@@ -101,7 +101,7 @@ public enum BufferStreamDelimiterMatchingMode {
 
 
 
-public protocol BufferStream {
+public protocol SimpleStream {
 	
 	/** The index of the first byte returned from the stream at the next read,
 	where 0 is the first byte of the stream.
@@ -155,13 +155,13 @@ public protocol BufferStream {
 	- Throws: If any error occurs reading the data (including end of stream
 	reached before any of the delimiters is reached), an error is thrown.
 	- Returns: The read Data. */
-	func readData(upToDelimiters: [Data], matchingMode: BufferStreamDelimiterMatchingMode, includeDelimiter: Bool, alwaysCopyBytes: Bool) throws -> Data
+	func readData(upToDelimiters: [Data], matchingMode: SimpleStreamDelimiterMatchingMode, includeDelimiter: Bool, alwaysCopyBytes: Bool) throws -> Data
 	
 }
 
 
 
-public extension BufferStream {
+public extension SimpleStream {
 	
 	func readType<Type>() throws -> Type {
 		let data = try readData(size: MemoryLayout<Type>.size, alwaysCopyBytes: false)
@@ -176,7 +176,7 @@ public extension BufferStream {
 
 
 
-public class BufferedInputStream : BufferStream {
+public class SimpleInputStream : SimpleStream {
 	
 	public let sourceStream: InputStream
 	
@@ -193,7 +193,7 @@ public class BufferedInputStream : BufferStream {
 	data (if the current internal buffer end is reached). */
 	public var streamReadSizeLimit: Int?
 	
-	/** Initializes a BufferedInputStream.
+	/** Initializes a SimpleInputStream.
 	
 	- Parameter stream: The stream to read data from. Must be opened.
 	- Parameter bufferSize: The size of the buffer to use to read from the
@@ -208,7 +208,7 @@ public class BufferedInputStream : BufferStream {
 		
 		defaultBufferSize = size
 		defaultSizedBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: size)
-//		if defaultSizedBuffer == nil {throw BufferStreamError.cannotAllocateMemory(size)}
+//		if defaultSizedBuffer == nil {throw SimpleStreamError.cannotAllocateMemory(size)}
 		
 		buffer = defaultSizedBuffer
 		bufferSize = defaultBufferSize
@@ -296,7 +296,7 @@ public class BufferedInputStream : BufferStream {
 			 * must create a new buffer. */
 //			print("Got too small buffer of size \(bufferSize) to read size \(size) from buffer. Retrying with a bigger buffer.")
 			/* NOT free'd here. Free'd later when set in Data, or by the readDataInBigEnoughBuffer function. */
-			guard let m = malloc(size) else {throw BufferStreamError.cannotAllocateMemory(size)}
+			guard let m = malloc(size) else {throw SimpleStreamError.cannotAllocateMemory(size)}
 			let biggerBuffer = m.assumingMemoryBound(to: UInt8.self)
 			
 			/* Copying data in our given buffer to the new buffer. */
@@ -320,7 +320,7 @@ public class BufferedInputStream : BufferStream {
 		}
 	}
 	
-	public func readData(upToDelimiters delimiters: [Data], matchingMode: BufferStreamDelimiterMatchingMode, includeDelimiter: Bool, alwaysCopyBytes: Bool) throws -> Data {
+	public func readData(upToDelimiters delimiters: [Data], matchingMode: SimpleStreamDelimiterMatchingMode, includeDelimiter: Bool, alwaysCopyBytes: Bool) throws -> Data {
 		let (minDelimiterLength, maxDelimiterLength) = delimiters.reduce((delimiters.first?.count ?? 0, 0)) { (min($0.0, $1.count), max($0.1, $1.count)) }
 		
 		var unmatchedDelimiters = Array(delimiters.enumerated())
@@ -359,7 +359,7 @@ public class BufferedInputStream : BufferStream {
 					
 					bufferSize += min(bufferSize, 3*1024*1024 /* 3MB */)
 					buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
-//					if buffer == nil {throw BufferStreamError.cannotAllocateMemory(size)}
+//					if buffer == nil {throw SimpleStreamError.cannotAllocateMemory(size)}
 					buffer.assign(from: bufferStart, count: bufferValidLength)
 					bufferStart = buffer
 					
@@ -376,7 +376,7 @@ public class BufferedInputStream : BufferStream {
 			assert(sizeToRead >= 0)
 			if sizeToRead == 0 {/* End of the (allowed) data */break}
 			let sizeRead = sourceStream.read(bufferStart.advanced(by: bufferValidLength), maxLength: sizeToRead)
-			guard sizeRead >= 0 else {throw BufferStreamError.streamReadError(streamError: sourceStream.streamError)}
+			guard sizeRead >= 0 else {throw SimpleStreamError.streamReadError(streamError: sourceStream.streamError)}
 			guard sizeRead >  0 else {/* End of the data */break}
 			bufferValidLength += sizeRead
 			totalReadBytesCount += sizeRead
@@ -390,7 +390,7 @@ public class BufferedInputStream : BufferStream {
 			return (alwaysCopyBytes ? Data(bytes: buffer.advanced(by: bufferStartPos), count: returnedLength) : Data(bytesNoCopy: buffer.advanced(by: bufferStartPos), count: returnedLength, deallocator: .none))
 		}
 		
-		if delimiters.count > 0 {throw BufferStreamError.delimitersNotFound}
+		if delimiters.count > 0 {throw SimpleStreamError.delimitersNotFound}
 		else {
 			/* We return the whole data. */
 			let returnedLength = bufferValidLength
@@ -425,7 +425,7 @@ public class BufferedInputStream : BufferStream {
 
 
 
-public class BufferedData : BufferStream {
+public class SimpleDataStream : SimpleStream {
 	
 	public let sourceData: Data
 	public let sourceDataSize: Int
@@ -437,12 +437,12 @@ public class BufferedData : BufferStream {
 	}
 	
 	public func readData(size: Int, alwaysCopyBytes: Bool) throws -> Data {
-		guard (sourceDataSize - currentReadPosition) >= size else {throw BufferStreamError.noMoreData}
+		guard (sourceDataSize - currentReadPosition) >= size else {throw SimpleStreamError.noMoreData}
 		
 		return getNextSubData(size: size, alwaysCopyBytes: alwaysCopyBytes)
 	}
 	
-	public func readData(upToDelimiters delimiters: [Data], matchingMode: BufferStreamDelimiterMatchingMode, includeDelimiter: Bool, alwaysCopyBytes: Bool) throws -> Data {
+	public func readData(upToDelimiters delimiters: [Data], matchingMode: SimpleStreamDelimiterMatchingMode, includeDelimiter: Bool, alwaysCopyBytes: Bool) throws -> Data {
 		let minDelimiterLength = delimiters.reduce(delimiters.first?.count ?? 0) { min($0, $1.count) }
 		
 		var unmatchedDelimiters = Array(delimiters.enumerated())
@@ -457,7 +457,7 @@ public class BufferedData : BufferStream {
 				return getNextSubData(size: returnedLength, alwaysCopyBytes: alwaysCopyBytes)
 			}
 			if delimiters.count == 0 {return getNextSubData(size: sourceDataSize - currentReadPosition, alwaysCopyBytes: alwaysCopyBytes)}
-			else                     {throw BufferStreamError.delimitersNotFound}
+			else                     {throw SimpleStreamError.delimitersNotFound}
 		}
 	}
 	
@@ -514,7 +514,7 @@ contain the asked size from `bufferStartPos`.
 - Parameter totalReadBytesCount: The total number of bytes read from the stream so far. Incremented by the number of bytes read in the function on output.
 - Parameter maxTotalReadBytesCount: The maximum number of total bytes allowed to be read from the stream.
 - Parameter stream: The stream from which to read new bytes if needed.
-- Throws: `BufferStreamError` in case of error.
+- Throws: `SimpleStreamError` in case of error.
 - Returns: The read data from the buffer or the stream if necessary.
 */
 private func readDataInBigEnoughBuffer(dataSize size: Int, allowReadingMore: Bool, bufferHandling: BufferHandling, buffer: UnsafeMutablePointer<UInt8>, bufferStartPos: inout Int, bufferValidLength: inout Int, bufferSize: Int, totalReadBytesCount: inout Int, maxTotalReadBytesCount: Int?, stream: InputStream) throws -> Data {
@@ -526,7 +526,7 @@ private func readDataInBigEnoughBuffer(dataSize size: Int, allowReadingMore: Boo
 		/* We must read from the stream. */
 		if let maxTotalReadBytesCount = maxTotalReadBytesCount, maxTotalReadBytesCount < totalReadBytesCount || size - bufferValidLength /* To read from stream */ > maxTotalReadBytesCount - totalReadBytesCount /* Remaining allowed bytes to be read */ {
 			/* We have to read more bytes from the stream than allowed. We bail. */
-			throw BufferStreamError.streamReadSizeLimitReached
+			throw SimpleStreamError.streamReadSizeLimitReached
 		}
 		
 		repeat {
@@ -541,7 +541,7 @@ private func readDataInBigEnoughBuffer(dataSize size: Int, allowReadingMore: Boo
 			let sizeRead = stream.read(bufferStart.advanced(by: bufferValidLength), maxLength: sizeToRead)
 			guard sizeRead > 0 else {
 				if bufferHandling == .useBufferTakeOwnership {free(buffer)}
-				throw (sizeRead == 0 ? BufferStreamError.noMoreData : BufferStreamError.streamReadError(streamError: stream.streamError))
+				throw (sizeRead == 0 ? SimpleStreamError.noMoreData : SimpleStreamError.streamReadError(streamError: stream.streamError))
 			}
 			bufferValidLength += sizeRead
 			totalReadBytesCount += sizeRead
@@ -567,7 +567,7 @@ private func readDataInBigEnoughBuffer(dataSize size: Int, allowReadingMore: Boo
 
 /* Returns nil if no confirmed matches were found, the length of the matched
  * data otherwise. */
-private func matchDelimiters(inData data: Data, usingMatchingMode matchingMode: BufferStreamDelimiterMatchingMode, includeDelimiter: Bool, minDelimiterLength: Int, withUnmatchedDelimiters unmatchedDelimiters: inout [(offset: Int, element: Data)], matchedDatas: inout [(delimiterIdx: Int, dataLength: Int)]) -> Int? {
+private func matchDelimiters(inData data: Data, usingMatchingMode matchingMode: SimpleStreamDelimiterMatchingMode, includeDelimiter: Bool, minDelimiterLength: Int, withUnmatchedDelimiters unmatchedDelimiters: inout [(offset: Int, element: Data)], matchedDatas: inout [(delimiterIdx: Int, dataLength: Int)]) -> Int? {
 	for delimiter in unmatchedDelimiters.reversed().enumerated() {
 		if let range = data.range(of: delimiter.element.element) {
 			/* Found one of the delimiter. Let's see what we do with it... */
@@ -610,7 +610,7 @@ private func matchDelimiters(inData data: Data, usingMatchingMode matchingMode: 
 	return findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode)
 }
 
-private func findBestMatch(fromMatchedDatas matchedDatas: [(delimiterIdx: Int, dataLength: Int)], usingMatchingMode matchingMode: BufferStreamDelimiterMatchingMode) -> Int? {
+private func findBestMatch(fromMatchedDatas matchedDatas: [(delimiterIdx: Int, dataLength: Int)], usingMatchingMode matchingMode: SimpleStreamDelimiterMatchingMode) -> Int? {
 	/* We need to have at least one match in order to be able to return smthg. */
 	guard let firstMatchedData = matchedDatas.first else {return nil}
 	

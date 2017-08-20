@@ -1,3 +1,4 @@
-# BufferStream
+# SimpleStream
 
-A description of this package.
+A simple stream protocol for Swift named `SimpleStream`, with two concrete implementations:
+`SimpleInputStream` and `SimpleDataStream`.
