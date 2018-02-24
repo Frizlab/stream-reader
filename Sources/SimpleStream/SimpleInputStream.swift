@@ -64,7 +64,7 @@ public class SimpleInputStream : SimpleStream {
 	}
 	
 	public func readData(upToDelimiters delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, alwaysCopyBytes: Bool) throws -> Data {
-		let (minDelimiterLength, maxDelimiterLength) = delimiters.reduce((delimiters.first?.count ?? 0, 0)) { (min($0.0, $1.count), max($0.1, $1.count)) }
+		let (minDelimiterLength, maxDelimiterLength) = delimiters.reduce((delimiters.first?.count ?? 0, 0), { (min($0.0, $1.count), max($0.1, $1.count)) })
 		
 		var unmatchedDelimiters = Array(delimiters.enumerated())
 		var matchedDatas = [(delimiterIdx: Int, dataLength: Int)]()

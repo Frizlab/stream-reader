@@ -73,8 +73,8 @@ public extension SimpleStream {
 	
 	func readType<Type>() throws -> Type {
 		let data = try readData(size: MemoryLayout<Type>.size, alwaysCopyBytes: false)
-		return data.withUnsafeBytes { (_ bytes: UnsafePointer<UInt8>) -> Type in
-			return bytes.withMemoryRebound(to: Type.self, capacity: 1) { pointer -> Type in
+		return data.withUnsafeBytes{ (_ bytes: UnsafePointer<UInt8>) -> Type in
+			return bytes.withMemoryRebound(to: Type.self, capacity: 1){ pointer -> Type in
 				return pointer.pointee
 			}
 		}
