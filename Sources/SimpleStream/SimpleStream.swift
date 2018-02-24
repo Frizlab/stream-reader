@@ -80,6 +80,10 @@ public extension SimpleStream {
 		}
 	}
 	
+	func readDataToEnd(alwaysCopyBytes: Bool) throws -> Data {
+		return try readData(upToDelimiters: [], matchingMode: .anyMatchWins, includeDelimiter: true, alwaysCopyBytes: alwaysCopyBytes)
+	}
+	
 }
 
 
