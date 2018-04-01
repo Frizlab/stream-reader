@@ -53,8 +53,8 @@ public class SimpleInputStream : SimpleStream {
 	}
 	
 	deinit {
-		if buffer != defaultSizedBuffer {buffer.deallocate(capacity: bufferSize)}
-		defaultSizedBuffer.deallocate(capacity: defaultBufferSize)
+		if buffer != defaultSizedBuffer {buffer.deallocate()}
+		defaultSizedBuffer.deallocate()
 	}
 	
 	public func readData(size: Int, alwaysCopyBytes: Bool) throws -> Data {
@@ -98,7 +98,6 @@ public class SimpleInputStream : SimpleStream {
 					assert(bufferStartPos == 0)
 					
 					let oldBuffer = buffer
-					let oldBufferSize = bufferSize
 					
 					bufferSize += min(bufferSize, 3*1024*1024 /* 3MB */)
 					buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
@@ -106,7 +105,7 @@ public class SimpleInputStream : SimpleStream {
 					buffer.assign(from: bufferStart, count: bufferValidLength)
 					bufferStart = buffer
 					
-					if oldBuffer != defaultSizedBuffer {oldBuffer.deallocate(capacity: oldBufferSize)}
+					if oldBuffer != defaultSizedBuffer {oldBuffer.deallocate()}
 				}
 			}
 			
@@ -190,7 +189,7 @@ public class SimpleInputStream : SimpleStream {
 			 * buffer! And get rid of the old (bigger) buffer if needed. */
 			defaultSizedBuffer.assign(from: bufferStart, count: bufferValidLength); bufferStartPos = 0
 			if defaultSizedBuffer != buffer {
-				buffer.deallocate(capacity: bufferSize)
+				buffer.deallocate()
 				buffer = defaultSizedBuffer
 				bufferSize = defaultBufferSize
 			}
