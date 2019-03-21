@@ -47,7 +47,7 @@ public class SimpleDataStream : SimpleStream {
 	
 	private func getNextSubData(size: Int, alwaysCopyBytes: Bool) -> Data {
 		let nextPosition = currentReadPosition + size
-		let range = Range<Int>(currentReadPosition..<nextPosition)
+		let range = currentReadPosition..<nextPosition
 		currentReadPosition = nextPosition
 		
 		if alwaysCopyBytes {return sourceData.subdata(in: range)}
