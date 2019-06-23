@@ -44,13 +44,13 @@ public class SimpleDataStream : SimpleReadStream {
 		return try sourceData.withUnsafeBytes{ bytes in
 			let searchedData = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: sourceDataSize-currentReadPosition)
 			if let match = matchDelimiters(inData: searchedData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
-				return try readData(size: match.matchedDataLength, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
+				return try readData(size: match.length, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}
 			/* matchDelimiters did not find an indisputable match. However, we have
 			 * fed all the data we have to it. We cannot find more matches! We
 			 * simply return the best match we got. */
 			if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
-				return try readData(size: match.matchedDataLength, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
+				return try readData(size: match.length, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}
 			throw SimpleStreamError.delimitersNotFound
 		}

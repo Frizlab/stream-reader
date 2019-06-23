@@ -13,6 +13,13 @@ public class SimpleInputStream : SimpleReadStream {
 	
 	public let sourceStream: InputStream
 	
+	/** The buffer size the client wants. Sometimes we have to allocated a bigger
+	buffer though because the requested data would not fit in this size. */
+	public let defaultBufferSize: Int
+	/** The number of bytes by which to increment the current buffer size when
+	reading up to given delimiters and there is no space left in the buffer. */
+	public let bufferSizeIncrement: Int
+	
 	public var currentReadPosition = 0
 	
 	/** The maximum total number of bytes to read from the stream. Can be changed
@@ -34,52 +41,51 @@ public class SimpleInputStream : SimpleReadStream {
 	- Parameter streamReadSizeLimit: The maximum number of bytes allowed to be
 	read from the stream.
 	*/
-	public init(stream: InputStream, bufferSize size: Int, streamReadSizeLimit streamLimit: Int?) {
+	public init(stream: InputStream, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, streamReadSizeLimit streamLimit: Int?) {
 		assert(size > 0)
 		
 		sourceStream = stream
 		
 		defaultBufferSize = size
-		defaultSizedBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: size)
-//		if defaultSizedBuffer == nil {throw SimpleStreamError.cannotAllocateMemory(size)}
+		bufferSizeIncrement = sizeIncrement
 		
-		buffer = defaultSizedBuffer
-		bufferSize = defaultBufferSize
-		
+		buffer = UnsafeMutableRawPointer.allocate(byteCount: size, alignment: MemoryLayout<UInt8>.alignment)
+		bufferSize = size
 		bufferStartPos = 0
 		bufferValidLength = 0
+		
 		totalReadBytesCount = 0
 		streamReadSizeLimit = streamLimit
 	}
 	
 	deinit {
-		if buffer != defaultSizedBuffer {buffer.deallocate()}
-		defaultSizedBuffer.deallocate()
+		buffer.deallocate()
 	}
 	
-	public func readData(size: Int, alwaysCopyBytes: Bool) throws -> Data {
-		let data = try readDataNoCurrentPosIncrement(size: size, alwaysCopyBytes: alwaysCopyBytes)
-		currentReadPosition += data.count
-		return data
+	public func readData<T>(size: Int, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
+		let ret = try readDataNoCurrentPosIncrement(size: size)
+		currentReadPosition += size
+		assert(ret.count == size)
+		return try handler(ret)
 	}
 	
-	public func readData(upToDelimiters delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, alwaysCopyBytes: Bool) throws -> Data {
+	public func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
 		let (minDelimiterLength, maxDelimiterLength) = delimiters.reduce((delimiters.first?.count ?? 0, 0), { (min($0.0, $1.count), max($0.1, $1.count)) })
 		
 		var unmatchedDelimiters = Array(delimiters.enumerated())
-		var matchedDatas = [(delimiterIdx: Int, dataLength: Int)]()
+		var matchedDatas = [Match]()
 		
 		var searchOffset = 0
 		repeat {
 			assert(bufferValidLength - searchOffset >= 0)
-			var bufferStart = buffer.advanced(by: bufferStartPos)
-			let bufferSearchData = Data(bytesNoCopy: bufferStart.advanced(by: searchOffset), count: bufferValidLength - searchOffset, deallocator: .none)
-			if let matchedLength = matchDelimiters(inData: bufferSearchData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
-				let returnedLength = searchOffset + matchedLength
+			var bufferStart = buffer + bufferStartPos
+			let bufferSearchData = UnsafeRawBufferPointer(start: bufferStart + searchOffset, count: bufferValidLength - searchOffset)
+			if let match = matchDelimiters(inData: bufferSearchData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
+				let returnedLength = searchOffset + match.length
 				bufferStartPos += returnedLength
 				bufferValidLength -= returnedLength
 				currentReadPosition += returnedLength
-				return (alwaysCopyBytes ? Data(bytes: bufferStart, count: returnedLength) : Data(bytesNoCopy: bufferStart, count: returnedLength, deallocator: .none))
+				return try handler(UnsafeRawBufferPointer(start: bufferStart, count: returnedLength), delimiters[match.delimiterIdx])
 			}
 			
 			/* No confirmed match. We have to continue reading the data! */
@@ -91,7 +97,9 @@ public class SimpleInputStream : SimpleReadStream {
 				if bufferStartPos > 0 {
 					/* We can move the data to the beginning of the buffer. */
 					assert(bufferStart != buffer)
-					buffer.assign(from: bufferStart, count: bufferValidLength); bufferStartPos = 0; bufferStart = buffer
+					buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
+					bufferStart = buffer
+					bufferStartPos = 0
 				} else {
 					/* The buffer is not big enough anymore. We need to create a new,
 					 * bigger one. */
@@ -99,13 +107,12 @@ public class SimpleInputStream : SimpleReadStream {
 					
 					let oldBuffer = buffer
 					
-					bufferSize += min(bufferSize, 3*1024*1024 /* 3MB */)
-					buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
-//					if buffer == nil {throw SimpleStreamError.cannotAllocateMemory(size)}
-					buffer.assign(from: bufferStart, count: bufferValidLength)
+					bufferSize += bufferSizeIncrement
+					buffer = UnsafeMutableRawPointer.allocate(byteCount: bufferSize, alignment: MemoryLayout<UInt8>.alignment)
+					buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
 					bufferStart = buffer
 					
-					if oldBuffer != defaultSizedBuffer {oldBuffer.deallocate()}
+					oldBuffer.deallocate()
 				}
 			}
 			
@@ -117,7 +124,7 @@ public class SimpleInputStream : SimpleReadStream {
 			
 			assert(sizeToRead >= 0)
 			if sizeToRead == 0 {/* End of the (allowed) data */break}
-			let sizeRead = sourceStream.read(bufferStart.advanced(by: bufferValidLength), maxLength: sizeToRead)
+			let sizeRead = sourceStream.read((bufferStart + bufferValidLength).assumingMemoryBound(to: UInt8.self), maxLength: sizeToRead) /* Assuming bound should be ok; see BSONSerialization for more discussion about that. */
 			guard sizeRead >= 0 else {throw SimpleStreamError.streamReadError(streamError: sourceStream.streamError)}
 			guard sizeRead >  0 else {/* End of the data */break}
 			bufferValidLength += sizeRead
@@ -125,24 +132,24 @@ public class SimpleInputStream : SimpleReadStream {
 			assert(streamReadSizeLimit == nil || totalReadBytesCount <= streamReadSizeLimit!)
 		} while true
 		
-		if let returnedLength = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
-			bufferStartPos += returnedLength
-			bufferValidLength -= returnedLength
-			currentReadPosition += returnedLength
-			return (alwaysCopyBytes ? Data(bytes: buffer.advanced(by: bufferStartPos), count: returnedLength) : Data(bytesNoCopy: buffer.advanced(by: bufferStartPos), count: returnedLength, deallocator: .none))
+		if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
+			bufferStartPos += match.length
+			bufferValidLength -= match.length
+			currentReadPosition += match.length
+			return try handler(UnsafeRawBufferPointer(start: buffer + bufferStartPos, count: match.length), delimiters[match.delimiterIdx])
 		}
 		
 		if delimiters.count > 0 {throw SimpleStreamError.delimitersNotFound}
 		else {
 			/* We return the whole data. */
 			let returnedLength = bufferValidLength
-			let bufferStart = buffer.advanced(by: bufferStartPos)
+			let bufferStart = buffer + bufferStartPos
 			
 			currentReadPosition += bufferValidLength
 			bufferStartPos += bufferValidLength
 			bufferValidLength = 0
 			
-			return (alwaysCopyBytes ? Data(bytes: bufferStart, count: returnedLength) : Data(bytesNoCopy: bufferStart, count: returnedLength, deallocator: .none))
+			return try handler(UnsafeRawBufferPointer(start: bufferStart, count: returnedLength), Data())
 		}
 	}
 	
@@ -150,107 +157,115 @@ public class SimpleInputStream : SimpleReadStream {
 	   MARK: - Private
 	   *************** */
 	
-	/* Note: These two variables basically describe an UnsafeRawBufferPointer */
-	private let defaultSizedBuffer: UnsafeMutablePointer<UInt8>
-	private let defaultBufferSize: Int
+	/* Note: We choose not to use UnsafeMutableRawBufferPointer as we’ll do many
+	 *       pointer arithmetic, it wouldn’t be very practical. */
 	
-	private var buffer: UnsafeMutablePointer<UInt8>
+	/** The current buffer in use. Its size should be `defaultBufferSize` most of
+	the time. */
+	private var buffer: UnsafeMutableRawPointer
 	private var bufferSize: Int
-	
 	private var bufferStartPos: Int
 	private var bufferValidLength: Int
 	
 	/** The total number of bytes read from the source stream. */
 	private var totalReadBytesCount = 0
 	
-	private func readDataNoCurrentPosIncrement(size: Int, alwaysCopyBytes: Bool) throws -> Data {
-		let bufferStart = buffer.advanced(by: bufferStartPos)
+	private func readDataNoCurrentPosIncrement(size: Int) throws -> UnsafeRawBufferPointer {
+		let bufferStart = buffer + bufferStartPos
 		
 		switch size {
 		case let s where s <= bufferSize - bufferStartPos:
 			/* The buffer is big enough to hold the size we want to read, from
 			 * buffer start pos. */
-			return try readDataInBigEnoughBuffer(
-				dataSize: size,
-				allowReadingMore: true,
-				bufferHandling: (alwaysCopyBytes ? .copyBytes : .useBufferLeaveOwnership),
-				buffer: buffer,
-				bufferStartPos: &bufferStartPos,
-				bufferValidLength: &bufferValidLength,
-				bufferSize: bufferSize,
-				totalReadBytesCount: &totalReadBytesCount,
-				maxTotalReadBytesCount: streamReadSizeLimit,
-				stream: sourceStream
-			)
+			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingMore: true)
 			
 		case let s where s <= defaultBufferSize:
 			/* The default sized buffer is enough to hold the size we want to read.
 			 * Let's copy the current buffer to the beginning of the default sized
 			 * buffer! And get rid of the old (bigger) buffer if needed. */
-			defaultSizedBuffer.assign(from: bufferStart, count: bufferValidLength); bufferStartPos = 0
-			if defaultSizedBuffer != buffer {
-				buffer.deallocate()
-				buffer = defaultSizedBuffer
+			if bufferSize != defaultBufferSize {
+				assert(bufferSize > defaultBufferSize)
+				
+				let oldBuffer = buffer
+				buffer = UnsafeMutableRawPointer.allocate(byteCount: bufferSize, alignment: MemoryLayout<UInt8>.alignment)
+				buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
 				bufferSize = defaultBufferSize
+				oldBuffer.deallocate()
+			} else {
+				buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
 			}
-			return try readDataInBigEnoughBuffer(
-				dataSize: size,
-				allowReadingMore: true,
-				bufferHandling: (alwaysCopyBytes ? .copyBytes : .useBufferLeaveOwnership),
-				buffer: buffer,
-				bufferStartPos: &bufferStartPos,
-				bufferValidLength: &bufferValidLength,
-				bufferSize: bufferSize,
-				totalReadBytesCount: &totalReadBytesCount,
-				maxTotalReadBytesCount: streamReadSizeLimit,
-				stream: sourceStream
-			)
+			bufferStartPos = 0
+			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingMore: true)
 			
 		case let s where s <= bufferSize:
 			/* The current buffer total size is enough to hold the size we want to
 			 * read. However, we must relocate data in the buffer so the buffer
 			 * start position is 0. */
-			buffer.assign(from: bufferStart, count: bufferValidLength); bufferStartPos = 0
-			return try readDataInBigEnoughBuffer(
-				dataSize: size,
-				allowReadingMore: true,
-				bufferHandling: (alwaysCopyBytes ? .copyBytes : .useBufferLeaveOwnership),
-				buffer: buffer,
-				bufferStartPos: &bufferStartPos,
-				bufferValidLength: &bufferValidLength,
-				bufferSize: bufferSize,
-				totalReadBytesCount: &totalReadBytesCount,
-				maxTotalReadBytesCount: streamReadSizeLimit,
-				stream: sourceStream
-			)
+			buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
+			bufferStartPos = 0
+			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingMore: true)
 			
 		default:
 			/* The buffer is not big enough to hold the data we want to read. We
 			 * must create a new buffer. */
 //			print("Got too small buffer of size \(bufferSize) to read size \(size) from buffer. Retrying with a bigger buffer.")
-			/* NOT free'd here. Free'd later when set in Data, or by the readDataInBigEnoughBuffer function. */
-			guard let m = malloc(size) else {throw SimpleStreamError.cannotAllocateMemory(size)}
-			let biggerBuffer = m.assumingMemoryBound(to: UInt8.self)
+			let oldBuffer = buffer
+			buffer = UnsafeMutableRawPointer.allocate(byteCount: size, alignment: MemoryLayout<UInt8>.alignment)
+			buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
+			bufferSize = size
+			bufferStartPos = 0
+			oldBuffer.deallocate()
 			
-			/* Copying data in our given buffer to the new buffer. */
-			biggerBuffer.assign(from: bufferStart, count: bufferValidLength) /* size is greater than bufferSize. We know we will never overflow our own buffer using bufferValidLength */
-			var newStartPos = 0, newValidLength = bufferValidLength
-			
-			bufferStartPos = 0; bufferValidLength = 0
-			
-			return try readDataInBigEnoughBuffer(
-				dataSize: size,
-				allowReadingMore: false, /* Not actually needed as the buffer size is exactly of the required size... */
-				bufferHandling: .useBufferTakeOwnership,
-				buffer: biggerBuffer,
-				bufferStartPos: &newStartPos,
-				bufferValidLength: &newValidLength,
-				bufferSize: size,
-				totalReadBytesCount: &totalReadBytesCount,
-				maxTotalReadBytesCount: streamReadSizeLimit,
-				stream: sourceStream
-			)
+			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingMore: false /* Not actually needed as the buffer size is exactly of the required size… */)
 		}
+	}
+	
+	/** Reads and return the asked size from buffer and completes with the stream
+	if needed. Uses the buffer to read the first bytes and store the bytes read
+	from the stream if applicable. The buffer must be big enough to contain the
+	asked size **from `bufferStartPos`**.
+	
+	- Parameter dataSize: The size of the data to return.
+	- Parameter allowReadingMore: If `true`, this method may read more data than
+	what is actually needed from the stream.
+	- Throws: `SimpleStreamError` in case of error.
+	- Returns: The read data from the buffer or the stream if necessary.
+	*/
+	private func readDataAssumingBufferIsBigEnough(dataSize size: Int, allowReadingMore: Bool) throws -> UnsafeRawBufferPointer {
+		assert(bufferSize - bufferStartPos >= size)
+		
+		let bufferStart = buffer + bufferStartPos
+		
+		if bufferValidLength < size {
+			/* We must read from the stream. */
+			if let maxTotalReadBytesCount = streamReadSizeLimit, maxTotalReadBytesCount < totalReadBytesCount || size - bufferValidLength /* To read from stream */ > maxTotalReadBytesCount - totalReadBytesCount /* Remaining allowed bytes to be read */ {
+				/* We have to read more bytes from the stream than allowed. We bail. */
+				throw SimpleStreamError.streamReadSizeLimitReached
+			}
+			
+			repeat {
+				let sizeToRead: Int
+				if !allowReadingMore {sizeToRead = size - bufferValidLength /* Checked to fit in the remaining bytes allowed to be read in "if" before this loop */}
+				else {
+					let unmaxedSizeToRead = bufferSize - (bufferStartPos + bufferValidLength) /* The remaining space in the buffer */
+					if let maxTotalReadBytesCount = streamReadSizeLimit {sizeToRead = min(unmaxedSizeToRead, maxTotalReadBytesCount - totalReadBytesCount /* Number of bytes remaining allowed to be read */)}
+					else                                                {sizeToRead =     unmaxedSizeToRead}
+				}
+				assert(sizeToRead > 0)
+				let sizeRead = sourceStream.read((bufferStart + bufferValidLength).assumingMemoryBound(to: UInt8.self), maxLength: sizeToRead)
+				guard sizeRead > 0 else {
+					throw (sizeRead == 0 ? SimpleStreamError.noMoreData : SimpleStreamError.streamReadError(streamError: sourceStream.streamError))
+				}
+				bufferValidLength += sizeRead
+				totalReadBytesCount += sizeRead
+				assert(streamReadSizeLimit == nil || totalReadBytesCount <= streamReadSizeLimit!)
+			} while bufferValidLength < size /* Reading until we have enough data in the buffer. */
+		}
+		
+		bufferValidLength -= size
+		bufferStartPos += size
+		
+		return UnsafeRawBufferPointer(start: bufferStart, count: size)
 	}
 	
 }

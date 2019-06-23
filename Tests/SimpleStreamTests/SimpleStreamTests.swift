@@ -43,22 +43,22 @@ class SimpleStreamTests : XCTestCase {
 		XCTAssert(rd == d)
 	}
 	
-//	func testReadSmallerThanBufferData() {
-//		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89")!)
-//		s.open(); defer {s.close()}
-//
-//		let bs = SimpleInputStream(stream: s, bufferSize: 3, streamReadSizeLimit: nil)
-//		let d = try? bs.readData(size: 2, alwaysCopyBytes: false)
-//		XCTAssert(d == Data(hexEncoded: "01 23")!)
-//	}
-//
-//	func testReadBiggerThanBufferData() {
-//		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89")!)
-//		s.open(); defer {s.close()}
-//
-//		let bs = SimpleInputStream(stream: s, bufferSize: 3, streamReadSizeLimit: nil)
-//		let d = try? bs.readData(size: 4, alwaysCopyBytes: false)
-//		XCTAssert(d == Data(hexEncoded: "01 23 45 67")!)
-//	}
+	func testReadSmallerThanBufferData() {
+		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89")!)
+		s.open(); defer {s.close()}
+
+		let bs = SimpleInputStream(stream: s, bufferSize: 3, bufferSizeIncrement: 1, streamReadSizeLimit: nil)
+		let d = try? bs.readData(size: 2)
+		XCTAssert(d == Data(hexEncoded: "01 23")!)
+	}
+
+	func testReadBiggerThanBufferData() {
+		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89")!)
+		s.open(); defer {s.close()}
+
+		let bs = SimpleInputStream(stream: s, bufferSize: 3, bufferSizeIncrement: 1, streamReadSizeLimit: nil)
+		let d = try? bs.readData(size: 4)
+		XCTAssert(d == Data(hexEncoded: "01 23 45 67")!)
+	}
 	
 }
