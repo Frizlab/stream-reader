@@ -1,5 +1,5 @@
 /*
- * SimpleStream.swift
+ * SimpleReadStream.swift
  * BSONSerialization
  *
  * Created by François Lamboley on 12/4/16.
@@ -10,7 +10,7 @@ import Foundation
 
 
 
-public protocol SimpleStream {
+public protocol SimpleReadStream {
 	
 	/** The index of the first byte returned from the stream at the next read,
 	where 0 is the first byte of the stream.
@@ -19,19 +19,24 @@ public protocol SimpleStream {
 	methods of the stream. */
 	var currentReadPosition: Int {get}
 	
-	/** Read the given size from the buffer and returns it in a Data object.
+	/** Read `size` bytes from the stream. The size must be >= 0.
 	
-	For performance reasons, you can specify you don't want to own the retrieved
-	bytes by setting `alwaysCopyBytes` to `false`, in which case, you should be
-	careful NOT to do any operation on the stream and make it stay in memory
-	while you hold on to the returned data.
+	You get access to the read data through an unsafe raw buffer pointer whose
+	memory is guaranteed to be valid and immutable while you’re in the handler.
+	You should not assume the memory you get is bound to a particular type. Use
+	the memory rebinding methods if you need them.
+	
+	- Important: For the memory to stay valid and immutable in the handler, do
+	**NOT** do any stream operation inside the handler.
 	
 	- Parameter size: The size you want to read from the buffer.
-	- Parameter alwaysCopyBytes: Whether to copy the bytes in the returned Data.
+	- Parameter handler: Use the data inside this hanlder. Do **NOT** do any
+	stream operation inside the handler.
+	- Parameter bytes: A raw buffer pointer to the bytes that have been read.
 	- Throws: If any error occurs reading the data (including end of stream
 	reached before the given size is read), an error is thrown.
-	- Returns: The read Data. */
-	func readData(size: Int, alwaysCopyBytes: Bool) throws -> Data
+	- Returns: The value returned by your handler. */
+	func readData<T>(size: Int, _ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T
 	
 	/** Read from the stream, until one of the given delimiters is found. An
 	empty delimiter matches nothing.
@@ -46,42 +51,61 @@ public protocol SimpleStream {
 	whole stream in an internal cache before being able to return the data you
 	want.
 	
-	For performance reasons, you can specify you don't want to own the retrieved
-	bytes by setting `alwaysCopyBytes` to `false`, in which case, you should be
-	careful NOT to do any operation on the stream and make it stay in memory
-	while you hold on to the returned data.
-	
 	- Important: If the delimiters list is empty, the stream is read until the
 	end (either end of stream or stream size limit is reached). If the delimiters
 	list is **not** empty but no delimiters match, the `delimitersNotFound` error
 	is thrown.
 	
+	You get access to the read data through an unsafe raw buffer pointer whose
+	memory is guaranteed to be valid and immutable while you’re in the handler.
+	You should not assume the memory you get is bound to a particular type. Use
+	the memory rebinding methods if you need them.
+	
+	- Important: For the memory to stay valid and immutable in the handler, do
+	**NOT** do any stream operation inside the handler.
+	
 	- Parameter upToDelimiters: The delimiters you want to stop reading at. Once
 	any of the given delimiters is reached, the read data is returned.
 	- Parameter matchingMode: How to choose which delimiter will stop the reading
 	of the data.
-	- Parameter alwaysCopyBytes: Whether to copy the bytes in the returned Data.
+	- Parameter includeDelimiter: Should the returned data include the delimiter
+	that matched?
+	- Parameter handler: Use the data inside this hanlder. Do **NOT** do any
+	stream operation inside the handler.
+	- Parameter bytes: A raw buffer pointer to the bytes that have been read.
+	- Parameter delimiterThatMatched: The delimiter that matched to stop reading
+	the stream. If no delimiters have been given (read the stream to the end),
+	this parameter will contain an empty Data object.
 	- Throws: If any error occurs reading the data (including end of stream
 	reached before any of the delimiters is reached), an error is thrown.
-	- Returns: The read Data. */
-	func readData(upToDelimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, alwaysCopyBytes: Bool) throws -> Data
+	- Returns: The value returned by your handler. */
+	func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, _ handler: (_ bytes: UnsafeRawBufferPointer, _ delimiterThatMatched: Data) throws -> T) throws -> T
 	
 }
 
 
-public extension SimpleStream {
+public extension SimpleReadStream {
 	
-	func readType<Type>() throws -> Type {
-		let data = try readData(size: MemoryLayout<Type>.size, alwaysCopyBytes: false)
-		return data.withUnsafeBytes{ (_ bytes: UnsafePointer<UInt8>) -> Type in
-			return bytes.withMemoryRebound(to: Type.self, capacity: 1){ pointer -> Type in
-				return pointer.pointee
-			}
-		}
+	func readData(size: Int) throws -> Data {
+		return try readData(size: size, { bytes in Data(bytes) })
 	}
 	
-	func readDataToEnd(alwaysCopyBytes: Bool) throws -> Data {
-		return try readData(upToDelimiters: [], matchingMode: .anyMatchWins, includeDelimiter: true, alwaysCopyBytes: alwaysCopyBytes)
+	func readData(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool) throws -> (data: Data, delimiter: Data) {
+		return try readData(upTo: delimiters, matchingMode: matchingMode, includeDelimiter: includeDelimiter, { bytes, delimiterThatMatched in (Data(bytes), delimiterThatMatched) })
+	}
+	
+	func readDataToEnd<T>(_ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T {
+		return try readData(upTo: [], matchingMode: .anyMatchWins, includeDelimiter: true, { bytes, _ in try handler(bytes) })
+	}
+	
+	func readDataToEnd() throws -> Data {
+		return try readData(upTo: [], matchingMode: .anyMatchWins, includeDelimiter: true, { bytes, _ in Data(bytes) })
+	}
+	
+	func readType<Type>() throws -> Type {
+		/* The bind should be ok because SimpleReadStream guarantees the memory to
+		 * be immutable in the closure. */
+		return try readData(size: MemoryLayout<Type>.size, { bytes in bytes.bindMemory(to: Type.self).baseAddress!.pointee })
 	}
 	
 }
@@ -105,10 +129,11 @@ read from the stream;
 public enum DelimiterMatchingMode {
 	
 	/** The lightest match algorithm (usually). In the given example, the third
-	delimiter (`"234"`) will match, because the `SimpleStream` will first try to
-	match the delimiters against what it already have in memory.
+	delimiter (`"234"`) will match, because the `SimpleReadStream` will first try
+	to match the delimiters against what it already have in memory.
 	
-	- Note: This is our current implementation of this type of `SimpleStream`.
+	- Note:
+	This is our current implementation of this type of `SimpleReadStream`.
 	However, any delimiter can match, the implementation is really up to the
 	implementer… However, implementers should keep in mind the goal of this
 	matching mode, which is to match and return the data in the quickest way

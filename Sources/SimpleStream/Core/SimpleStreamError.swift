@@ -31,7 +31,4 @@ public enum SimpleStreamError : Error {
 	the stream limit has been reached if this error is thrown.) */
 	case delimitersNotFound
 	
-	/** Cannot allocate memory (either with `malloc` or `UnsafePointer.alloc()`). */
-	case cannotAllocateMemory(Int)
-	
 }

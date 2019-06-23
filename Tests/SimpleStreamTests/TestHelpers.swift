@@ -13,7 +13,7 @@ import Foundation
 extension Data {
 	
 	/* "FC"   --> Returns data with bytes [0xFC]
-	 * "A"    --> Returns data with bytes [0xA]
+	 * "A"    --> Returns data with bytes [0x0A]
 	 * "FCA"  --> Returns data with bytes [OxFC, 0x0A]
 	 * "FC0A" --> Returns data with bytes [OxFC, 0x0A]
 	 * ""     --> Returns data with bytes []
@@ -47,7 +47,7 @@ extension Data {
 			default: return nil
 			}
 		}
-		self.init(bytes: bytes)
+		self.init(bytes)
 	}
 	
 	func hexEncodedString(withSpaces: Bool = true) -> String {
