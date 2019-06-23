@@ -1,5 +1,5 @@
 /*
- * SimpleStream.swift
+ * SimpleReadStream.swift
  * BSONSerialization
  *
  * Created by François Lamboley on 12/4/16.
@@ -10,7 +10,7 @@ import Foundation
 
 
 
-public protocol SimpleStream {
+public protocol SimpleReadStream {
 	
 	/** The index of the first byte returned from the stream at the next read,
 	where 0 is the first byte of the stream.
@@ -84,7 +84,7 @@ public protocol SimpleStream {
 }
 
 
-public extension SimpleStream {
+public extension SimpleReadStream {
 	
 	func readType<Type>() throws -> Type {
 		#warning("To be tested: we might get an error about loading from an unaligned location in memory.")
@@ -116,10 +116,11 @@ read from the stream;
 public enum DelimiterMatchingMode {
 	
 	/** The lightest match algorithm (usually). In the given example, the third
-	delimiter (`"234"`) will match, because the `SimpleStream` will first try to
-	match the delimiters against what it already have in memory.
+	delimiter (`"234"`) will match, because the `SimpleReadStream` will first try
+	to match the delimiters against what it already have in memory.
 	
-	- Note: This is our current implementation of this type of `SimpleStream`.
+	- Note:
+	This is our current implementation of this type of `SimpleReadStream`.
 	However, any delimiter can match, the implementation is really up to the
 	implementer… However, implementers should keep in mind the goal of this
 	matching mode, which is to match and return the data in the quickest way

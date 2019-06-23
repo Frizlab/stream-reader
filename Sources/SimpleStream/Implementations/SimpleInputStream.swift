@@ -9,7 +9,7 @@ import Foundation
 
 
 
-public class SimpleInputStream : SimpleStream {
+public class SimpleInputStream : SimpleReadStream {
 	
 	public let sourceStream: InputStream
 	
