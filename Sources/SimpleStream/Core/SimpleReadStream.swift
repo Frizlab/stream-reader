@@ -79,20 +79,32 @@ public protocol SimpleReadStream {
 	- Throws: If any error occurs reading the data (including end of stream
 	reached before any of the delimiters is reached), an error is thrown.
 	- Returns: The value returned by your handler. */
-	func readData<T>(upToDelimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, _ handler: (_ bytes: UnsafeRawBufferPointer, _ delimiterThatMatched: Data) throws -> T) throws -> T
+	func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, _ handler: (_ bytes: UnsafeRawBufferPointer, _ delimiterThatMatched: Data) throws -> T) throws -> T
 	
 }
 
 
 public extension SimpleReadStream {
 	
-	func readType<Type>() throws -> Type {
-		#warning("To be tested: we might get an error about loading from an unaligned location in memory.")
-		return try readData(size: MemoryLayout<Type>.size, { bytes in bytes.load(as: Type.self) })
+	func readData(size: Int) throws -> Data {
+		return try readData(size: size, { bytes in Data(bytes) })
+	}
+	
+	func readData(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool) throws -> (data: Data, delimiter: Data) {
+		return try readData(upTo: delimiters, matchingMode: matchingMode, includeDelimiter: includeDelimiter, { bytes, delimiterThatMatched in (Data(bytes), delimiterThatMatched) })
 	}
 	
 	func readDataToEnd<T>(_ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T {
-		return try readData(upToDelimiters: [], matchingMode: .anyMatchWins, includeDelimiter: true, { bytes, _ in try handler(bytes) })
+		return try readData(upTo: [], matchingMode: .anyMatchWins, includeDelimiter: true, { bytes, _ in try handler(bytes) })
+	}
+	
+	func readDataToEnd() throws -> Data {
+		return try readData(upTo: [], matchingMode: .anyMatchWins, includeDelimiter: true, { bytes, _ in Data(bytes) })
+	}
+	
+	func readType<Type>() throws -> Type {
+		#warning("To be tested: we might get an error about loading from an unaligned location in memory.")
+		return try readData(size: MemoryLayout<Type>.size, { bytes in bytes.load(as: Type.self) })
 	}
 	
 }

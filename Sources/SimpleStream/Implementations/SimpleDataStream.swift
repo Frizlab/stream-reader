@@ -31,7 +31,7 @@ public class SimpleDataStream : SimpleReadStream {
 		}
 	}
 	
-	public func readData<T>(upToDelimiters delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
+	public func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
 		guard delimiters.count > 0 else {
 			/* When there are no delimiters, we simply read the stream to the end. */
 			return try readData(size: sourceDataSize-currentReadPosition, { ret in try handler(ret, Data()) })
