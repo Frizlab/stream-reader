@@ -72,7 +72,7 @@ class SimpleStreamTests : XCTestCase {
 	}
 	
 	func testReadErrorFromFileHandle() throws {
-		#if !os(macOS) && !os(iOS) && !os(watchOS) && !os(tvOS)
+		#if !os(macOS) && !os(iOS) && !os(watchOS) && !os(tvOS) && swift(>=5.1)
 		let tmpFileURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent("SimpleStreamTest_\(Int.random(in: 0..<4242))")
 		XCTAssertTrue(FileManager.default.createFile(atPath: tmpFileURL.path, contents: Data(0..<127), attributes: nil))
 		
@@ -88,7 +88,11 @@ class SimpleStreamTests : XCTestCase {
 		/* This test cannot work on Apple platforms because ObjC exception
 		 * handling is not possible in Swift, and FileHandle currently still
 		 * relies on the Foundation implementation which throws an ObjC exception
-		 * in case of an error. */
+		 * in case of an error.
+		 * On Linux, with Swift <5.1, the necessary methods to read with a proper
+		 * exception handling did not exist yet.
+		 * Note: I did not test using Swift 5.1 on Apple platforms; maybe they
+		 * implemented the “good” methods somehow (but I doubt it). */
 		XCTAssertTrue(true)
 		#endif
 	}

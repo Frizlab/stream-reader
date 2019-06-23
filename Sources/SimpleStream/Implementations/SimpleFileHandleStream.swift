@@ -51,7 +51,11 @@ extension FileHandle : GenericReadStream {
 //	}
 	
 	public func read(_ buffer: UnsafeMutableRawPointer, maxLength len: Int) throws -> Int {
+		#if !os(macOS) && !os(iOS) && !os(watchOS) && !os(tvOS) && swift(>=5.1)
+		let data = try read(upToCount: len) ?? Data()
+		#else
 		let data = readData(ofLength: len)
+		#endif
 		let sizeRead = data.count
 		
 		guard sizeRead > 0 else {return 0}
