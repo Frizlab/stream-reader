@@ -103,8 +103,9 @@ public extension SimpleReadStream {
 	}
 	
 	func readType<Type>() throws -> Type {
-		#warning("To be tested: we might get an error about loading from an unaligned location in memory.")
-		return try readData(size: MemoryLayout<Type>.size, { bytes in bytes.load(as: Type.self) })
+		/* The bind should be ok because SimpleReadStream guarantees the memory to
+		 * be immutable in the closure. */
+		return try readData(size: MemoryLayout<Type>.size, { bytes in bytes.bindMemory(to: Type.self).baseAddress!.pointee })
 	}
 	
 }
