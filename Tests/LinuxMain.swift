@@ -1,15 +1,8 @@
 import XCTest
 
-@testable import SimpleStreamTests
+import SimpleStreamTests
 
-var tests: [XCTestCaseEntry] = [
-	testCase([
-	]),
-	testCase([
-		("testReadSmallerThanBufferData", SimpleStreamTests.testReadSmallerThanBufferData),
-		("testReadBiggerThanBufferData", SimpleStreamTests.testReadBiggerThanBufferData),
-	]),
-	testCase([
-	]),
-]
+var tests = [XCTestCaseEntry]()
+tests += SimpleStreamTests.__allTests()
+
 XCTMain(tests)
