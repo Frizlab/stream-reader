@@ -19,19 +19,24 @@ public protocol SimpleStream {
 	methods of the stream. */
 	var currentReadPosition: Int {get}
 	
-	/** Read the given size from the buffer and returns it in a Data object.
+	/** Read `size` bytes from the stream.
 	
-	For performance reasons, you can specify you don't want to own the retrieved
-	bytes by setting `alwaysCopyBytes` to `false`, in which case, you should be
-	careful NOT to do any operation on the stream and make it stay in memory
-	while you hold on to the returned data.
+	You get access to the read data through an unsafe raw buffer pointer whose
+	memory is guaranteed to be valid and immutable while you’re in the handler.
+	You should not assume the memory you get is bound to a particular type. Use
+	the memory rebinding methods if you need them.
+	
+	- Important: For the memory to stay valid and immutable in the handler, do
+	**NOT** do any stream operation inside the handler.
 	
 	- Parameter size: The size you want to read from the buffer.
-	- Parameter alwaysCopyBytes: Whether to copy the bytes in the returned Data.
+	- Parameter handler: Use the data inside this hanlder. Do **NOT** do any
+	stream operation inside the handler.
+	- Parameter bytes: A raw buffer pointer to the bytes that have been read.
 	- Throws: If any error occurs reading the data (including end of stream
 	reached before the given size is read), an error is thrown.
-	- Returns: The read Data. */
-	func readData(size: Int, alwaysCopyBytes: Bool) throws -> Data
+	- Returns: The value returned by your handler. */
+	func readData<T>(size: Int, _ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T
 	
 	/** Read from the stream, until one of the given delimiters is found. An
 	empty delimiter matches nothing.
@@ -46,25 +51,35 @@ public protocol SimpleStream {
 	whole stream in an internal cache before being able to return the data you
 	want.
 	
-	For performance reasons, you can specify you don't want to own the retrieved
-	bytes by setting `alwaysCopyBytes` to `false`, in which case, you should be
-	careful NOT to do any operation on the stream and make it stay in memory
-	while you hold on to the returned data.
-	
 	- Important: If the delimiters list is empty, the stream is read until the
 	end (either end of stream or stream size limit is reached). If the delimiters
 	list is **not** empty but no delimiters match, the `delimitersNotFound` error
 	is thrown.
 	
+	You get access to the read data through an unsafe raw buffer pointer whose
+	memory is guaranteed to be valid and immutable while you’re in the handler.
+	You should not assume the memory you get is bound to a particular type. Use
+	the memory rebinding methods if you need them.
+	
+	- Important: For the memory to stay valid and immutable in the handler, do
+	**NOT** do any stream operation inside the handler.
+	
 	- Parameter upToDelimiters: The delimiters you want to stop reading at. Once
 	any of the given delimiters is reached, the read data is returned.
 	- Parameter matchingMode: How to choose which delimiter will stop the reading
 	of the data.
-	- Parameter alwaysCopyBytes: Whether to copy the bytes in the returned Data.
+	- Parameter includeDelimiter: Should the returned data include the delimiter
+	that matched?
+	- Parameter handler: Use the data inside this hanlder. Do **NOT** do any
+	stream operation inside the handler.
+	- Parameter bytes: A raw buffer pointer to the bytes that have been read.
+	- Parameter delimiterThatMatched: The delimiter that matched to stop reading
+	the stream. If no delimiters have been given (read the stream to the end),
+	this parameter will contain an empty Data object.
 	- Throws: If any error occurs reading the data (including end of stream
 	reached before any of the delimiters is reached), an error is thrown.
-	- Returns: The read Data. */
-	func readData(upToDelimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, alwaysCopyBytes: Bool) throws -> Data
+	- Returns: The value returned by your handler. */
+	func readData<T>(upToDelimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, _ handler: (_ bytes: UnsafeRawBufferPointer, _ delimiterThatMatched: Data) throws -> T) throws -> T
 	
 }
 
@@ -72,16 +87,12 @@ public protocol SimpleStream {
 public extension SimpleStream {
 	
 	func readType<Type>() throws -> Type {
-		let data = try readData(size: MemoryLayout<Type>.size, alwaysCopyBytes: false)
-		return data.withUnsafeBytes{ (_ bytes: UnsafePointer<UInt8>) -> Type in
-			return bytes.withMemoryRebound(to: Type.self, capacity: 1){ pointer -> Type in
-				return pointer.pointee
-			}
-		}
+		#warning("To be tested: we might get an error about loading from an unaligned location in memory.")
+		return try readData(size: MemoryLayout<Type>.size, { bytes in bytes.load(as: Type.self) })
 	}
 	
-	func readDataToEnd(alwaysCopyBytes: Bool) throws -> Data {
-		return try readData(upToDelimiters: [], matchingMode: .anyMatchWins, includeDelimiter: true, alwaysCopyBytes: alwaysCopyBytes)
+	func readDataToEnd<T>(_ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T {
+		return try readData(upToDelimiters: [], matchingMode: .anyMatchWins, includeDelimiter: true, { bytes, _ in try handler(bytes) })
 	}
 	
 }
