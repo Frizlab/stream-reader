@@ -88,44 +88,52 @@ internal func readDataInBigEnoughBuffer(dataSize size: Int, allowReadingMore: Bo
 	return ret
 }
 
-/* ***********************************
-   MARK: → For read data to delimiters
-   *********************************** */
+/* *****************************************
+   MARK: → For reading data up to delimiters
+   ***************************************** */
+
+internal struct Match {
+	
+	var delimiterIdx: Int
+	var matchedDataLength: Int
+	
+}
 
 /* Returns nil if no confirmed matches were found, the length of the matched
  * data otherwise. */
-internal func matchDelimiters(inData data: Data, usingMatchingMode matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, minDelimiterLength: Int, withUnmatchedDelimiters unmatchedDelimiters: inout [(offset: Int, element: Data)], matchedDatas: inout [(delimiterIdx: Int, dataLength: Int)]) -> Int? {
-	for delimiter in unmatchedDelimiters.reversed().enumerated() {
-		if let range = data.range(of: delimiter.element.element) {
+internal func matchDelimiters(inData data: UnsafeRawBufferPointer, usingMatchingMode matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, minDelimiterLength: Int, withUnmatchedDelimiters unmatchedDelimiters: inout [(offset: Int, element: Data)], matchedDatas: inout [Match]) -> Match? {
+	/* Reversed enumeration in order to be able to remove an element from the
+	 * unmatchedDelimiters array while still enumerating it and keeping valid
+	 * indexes. Not 100% sure this is valid, but it seems to work… */
+	for enumeratedDelimiter in unmatchedDelimiters.reversed().enumerated() {
+		if let range = data.firstRange(of: enumeratedDelimiter.element.element) {
 			/* Found one of the delimiter. Let's see what we do with it... */
-			let matchedLength = range.lowerBound + (includeDelimiter ? delimiter.element.element.count : 0)
+			let matchedLength = range.lowerBound + (includeDelimiter ? enumeratedDelimiter.element.element.count : 0)
+			let match = Match(delimiterIdx: enumeratedDelimiter.element.offset, matchedDataLength: matchedLength)
 			switch matchingMode {
 			case .anyMatchWins:
 				/* We found a match. With this matching mode, this is enough!
 				 * We simply return here the data we found, no questions asked. */
-				return matchedLength
+				return match
 				
 			case .shortestDataWins:
 				/* We're searching for the shortest match. A match of 0 is
-				 * necessarily the shortest! So we can return straight away when
-				 * we find a 0-length match. */
-				guard matchedLength > (includeDelimiter ? minDelimiterLength : 0) else {return matchedLength}
-				unmatchedDelimiters.remove(at: delimiter.offset)
-				matchedDatas.append((delimiterIdx: delimiter.element.offset, dataLength: matchedLength))
+				 * necessarily the shortest! So we can return straight away when we
+				 * find a 0-length match. */
+				guard matchedLength > (includeDelimiter ? minDelimiterLength : 0) else {return match}
+				unmatchedDelimiters.remove(at: enumeratedDelimiter.offset)
+				matchedDatas.append(match)
 				
 			case .longestDataWins:
-				unmatchedDelimiters.remove(at: delimiter.offset)
-				matchedDatas.append((delimiterIdx: delimiter.element.offset, dataLength: matchedLength))
+				unmatchedDelimiters.remove(at: enumeratedDelimiter.offset)
+				matchedDatas.append(match)
 				
 			case .firstMatchingDelimiterWins:
-				guard delimiter.offset > 0 else {
-					/* We're searching for the first matching delimiter. If the
-					 * first delimiter matches, we can return the matched data
-					 * straight away! */
-					return matchedLength
-				}
-				unmatchedDelimiters.remove(at: delimiter.offset)
-				matchedDatas.append((delimiterIdx: delimiter.element.offset, dataLength: matchedLength))
+				/* We're searching for the first matching delimiter. If the first
+				 * delimiter matches, we can return the matched data straight away! */
+				guard match.delimiterIdx > 0 else {return match}
+				unmatchedDelimiters.remove(at: enumeratedDelimiter.offset)
+				matchedDatas.append(match)
 			}
 		}
 	}
@@ -137,14 +145,14 @@ internal func matchDelimiters(inData data: Data, usingMatchingMode matchingMode:
 	return findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode)
 }
 
-internal func findBestMatch(fromMatchedDatas matchedDatas: [(delimiterIdx: Int, dataLength: Int)], usingMatchingMode matchingMode: DelimiterMatchingMode) -> Int? {
+internal func findBestMatch(fromMatchedDatas matchedDatas: [Match], usingMatchingMode matchingMode: DelimiterMatchingMode) -> Match? {
 	/* We need to have at least one match in order to be able to return smthg. */
 	guard let firstMatchedData = matchedDatas.first else {return nil}
 	
 	switch matchingMode {
 	case .anyMatchWins: fatalError("INTERNAL LOGIC FAIL!") /* Any match is a trivial case and should have been filtered prior calling this method... */
-	case .shortestDataWins: return matchedDatas.reduce(firstMatchedData, { $0.dataLength < $1.dataLength ? $0 : $1 }).dataLength
-	case .longestDataWins:  return matchedDatas.reduce(firstMatchedData, { $0.dataLength > $1.dataLength ? $0 : $1 }).dataLength
-	case .firstMatchingDelimiterWins: return matchedDatas.reduce(firstMatchedData, { $0.delimiterIdx < $1.delimiterIdx ? $0 : $1 }).dataLength
+	case .shortestDataWins: return matchedDatas.reduce(firstMatchedData, { $0.matchedDataLength < $1.matchedDataLength ? $0 : $1 })
+	case .longestDataWins:  return matchedDatas.reduce(firstMatchedData, { $0.matchedDataLength > $1.matchedDataLength ? $0 : $1 })
+	case .firstMatchingDelimiterWins: return matchedDatas.reduce(firstMatchedData, { $0.delimiterIdx < $1.delimiterIdx ? $0 : $1 })
 	}
 }

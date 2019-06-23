@@ -19,7 +19,7 @@ public protocol SimpleReadStream {
 	methods of the stream. */
 	var currentReadPosition: Int {get}
 	
-	/** Read `size` bytes from the stream.
+	/** Read `size` bytes from the stream. The size must be >= 0.
 	
 	You get access to the read data through an unsafe raw buffer pointer whose
 	memory is guaranteed to be valid and immutable while you’re in the handler.

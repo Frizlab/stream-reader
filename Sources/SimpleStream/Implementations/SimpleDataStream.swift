@@ -20,40 +20,40 @@ public class SimpleDataStream : SimpleReadStream {
 		sourceDataSize = sourceData.count
 	}
 	
-	public func readData(size: Int, alwaysCopyBytes: Bool) throws -> Data {
+	public func readData<T>(size: Int, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
+		assert(size >= 0)
 		guard (sourceDataSize - currentReadPosition) >= size else {throw SimpleStreamError.noMoreData}
 		
-		return getNextSubData(size: size, alwaysCopyBytes: alwaysCopyBytes)
-	}
-	
-	public func readData(upToDelimiters delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, alwaysCopyBytes: Bool) throws -> Data {
-		let minDelimiterLength = delimiters.reduce(delimiters.first?.count ?? 0, { min($0, $1.count) })
-		
-		var unmatchedDelimiters = Array(delimiters.enumerated())
-		var matchedDatas = [(delimiterIdx: Int, dataLength: Int)]()
-		
-		return try sourceData.withUnsafeBytes{ (bytes: UnsafePointer<UInt8>) -> Data in
-			let searchedData = Data(bytesNoCopy: UnsafeMutablePointer<UInt8>(mutating: bytes).advanced(by: currentReadPosition), count: sourceDataSize-currentReadPosition, deallocator: .none)
-			if let returnedLength = matchDelimiters(inData: searchedData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
-				return getNextSubData(size: returnedLength, alwaysCopyBytes: alwaysCopyBytes)
-			}
-			if let returnedLength = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
-				return getNextSubData(size: returnedLength, alwaysCopyBytes: alwaysCopyBytes)
-			}
-			if delimiters.count == 0 {return getNextSubData(size: sourceDataSize - currentReadPosition, alwaysCopyBytes: alwaysCopyBytes)}
-			else                     {throw SimpleStreamError.delimitersNotFound}
+		return try sourceData.withUnsafeBytes{ bytes in
+			let ret = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: size)
+			currentReadPosition += size
+			return try handler(ret)
 		}
 	}
 	
-	private func getNextSubData(size: Int, alwaysCopyBytes: Bool) -> Data {
-		let nextPosition = currentReadPosition + size
-		let range = currentReadPosition..<nextPosition
-		currentReadPosition = nextPosition
+	public func readData<T>(upToDelimiters delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
+		guard delimiters.count > 0 else {
+			/* When there are no delimiters, we simply read the stream to the end. */
+			return try readData(size: sourceDataSize-currentReadPosition, { ret in try handler(ret, Data()) })
+		}
 		
-		if alwaysCopyBytes {return sourceData.subdata(in: range)}
-		else               {return sourceData.withUnsafeBytes{ (bytes: UnsafePointer<UInt8>) -> Data in
-			return Data(bytesNoCopy: UnsafeMutablePointer<UInt8>(mutating: bytes).advanced(by: range.lowerBound), count: size, deallocator: .none)
-		}}
+		var unmatchedDelimiters = Array(delimiters.enumerated())
+		let minDelimiterLength = delimiters.map{ $0.count }.min() ?? 0
+		var matchedDatas = [Match]()
+		
+		return try sourceData.withUnsafeBytes{ bytes in
+			let searchedData = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: sourceDataSize-currentReadPosition)
+			if let match = matchDelimiters(inData: searchedData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
+				return try readData(size: match.matchedDataLength, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
+			}
+			/* matchDelimiters did not find an indisputable match. However, we have
+			 * fed all the data we have to it. We cannot find more matches! We
+			 * simply return the best match we got. */
+			if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
+				return try readData(size: match.matchedDataLength, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
+			}
+			throw SimpleStreamError.delimitersNotFound
+		}
 	}
 	
 }
