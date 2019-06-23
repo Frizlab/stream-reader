@@ -59,7 +59,7 @@ extension FileHandle : GenericReadStream {
 		let sizeRead = data.count
 		
 		guard sizeRead > 0 else {return 0}
-		data.withUnsafeBytes{ bytes in buffer.copyMemory(from: bytes, byteCount: sizeRead) }
+		data.withUnsafeBytes{ bytes in buffer.copyMemory(from: bytes.baseAddress!, byteCount: sizeRead) }
 		return sizeRead
 	}
 	
