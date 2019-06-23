@@ -1,5 +1,5 @@
 /*
- * SimpleInputStream.swift
+ * SimpleFileHandleStream.swift
  * SimpleStream
  *
  * Created by François Lamboley on 20/08/2017.
@@ -9,10 +9,10 @@ import Foundation
 
 
 
-/* WARNING: Mostly COPIED to SimpleFileHandleStream… */
-public class SimpleInputStream : SimpleReadStream {
+/* WARNING: Mostly COPIED from SimpleInputStream… */
+public class SimpleFileHandleStream : SimpleReadStream {
 	
-	public let sourceStream: InputStream
+	public let sourceHandle: FileHandle
 	
 	/** The buffer size the client wants. Sometimes we have to allocated a bigger
 	buffer though because the requested data would not fit in this size. */
@@ -32,20 +32,20 @@ public class SimpleInputStream : SimpleReadStream {
 	read, no more bytes will be read from the stream, and the
 	`.streamReadSizeLimitReached` error will be thrown when trying to read more
 	data (if the current internal buffer end is reached). */
-	public var streamReadSizeLimit: Int?
+	public var handleReadSizeLimit: Int?
 	
 	/** Initializes a SimpleInputStream.
 	
 	- Parameter stream: The stream to read data from. Must be opened.
 	- Parameter bufferSize: The size of the buffer to use to read from the
 	stream. Sometimes, more memory might be allocated if needed for some reads.
-	- Parameter streamReadSizeLimit: The maximum number of bytes allowed to be
-	read from the stream.
+	- Parameter handleReadSizeLimit: The maximum number of bytes allowed to be
+	read from the handle.
 	*/
-	public init(stream: InputStream, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, streamReadSizeLimit streamLimit: Int?) {
+	public init(fileHandle: FileHandle, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, handleReadSizeLimit handleLimit: Int?) {
 		assert(size > 0)
 		
-		sourceStream = stream
+		sourceHandle = fileHandle
 		
 		defaultBufferSize = size
 		bufferSizeIncrement = sizeIncrement
@@ -56,7 +56,7 @@ public class SimpleInputStream : SimpleReadStream {
 		bufferValidLength = 0
 		
 		totalReadBytesCount = 0
-		streamReadSizeLimit = streamLimit
+		handleReadSizeLimit = handleLimit
 	}
 	
 	deinit {
@@ -120,17 +120,18 @@ public class SimpleInputStream : SimpleReadStream {
 			/* Let's read from the stream now! */
 			let sizeToRead: Int
 			let unmaxedSizeToRead = bufferSize - (bufferStartPos + bufferValidLength) /* The remaining space in the buffer */
-			if let maxTotalReadBytesCount = streamReadSizeLimit {sizeToRead = min(unmaxedSizeToRead, max(0, maxTotalReadBytesCount - totalReadBytesCount) /* Number of bytes remaining allowed to be read */)}
+			if let maxTotalReadBytesCount = handleReadSizeLimit {sizeToRead = min(unmaxedSizeToRead, max(0, maxTotalReadBytesCount - totalReadBytesCount) /* Number of bytes remaining allowed to be read */)}
 			else                                                {sizeToRead =     unmaxedSizeToRead}
 			
 			assert(sizeToRead >= 0)
 			if sizeToRead == 0 {/* End of the (allowed) data */break}
-			let sizeRead = sourceStream.read((bufferStart + bufferValidLength).assumingMemoryBound(to: UInt8.self), maxLength: sizeToRead) /* Assuming bound should be ok; see BSONSerialization for more discussion about that. */
-			guard sizeRead >= 0 else {throw SimpleStreamError.streamReadError(streamError: sourceStream.streamError)}
-			guard sizeRead >  0 else {/* End of the data */break}
+			let readData = sourceHandle.readData(ofLength: sizeToRead) /* Throws an (ObjC-)exception if reading failed! */
+			let sizeRead = readData.count
+			guard sizeRead > 0 else {/* End of the data */break}
+			readData.withUnsafeBytes{ readBytes in (bufferStart + bufferValidLength).copyMemory(from: readBytes, byteCount: sizeRead) }
 			bufferValidLength += sizeRead
 			totalReadBytesCount += sizeRead
-			assert(streamReadSizeLimit == nil || totalReadBytesCount <= streamReadSizeLimit!)
+			assert(handleReadSizeLimit == nil || totalReadBytesCount <= handleReadSizeLimit!)
 		} while true
 		
 		if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
@@ -239,7 +240,7 @@ public class SimpleInputStream : SimpleReadStream {
 		
 		if bufferValidLength < size {
 			/* We must read from the stream. */
-			if let maxTotalReadBytesCount = streamReadSizeLimit, maxTotalReadBytesCount < totalReadBytesCount || size - bufferValidLength /* To read from stream */ > maxTotalReadBytesCount - totalReadBytesCount /* Remaining allowed bytes to be read */ {
+			if let maxTotalReadBytesCount = handleReadSizeLimit, maxTotalReadBytesCount < totalReadBytesCount || size - bufferValidLength /* To read from stream */ > maxTotalReadBytesCount - totalReadBytesCount /* Remaining allowed bytes to be read */ {
 				/* We have to read more bytes from the stream than allowed. We bail. */
 				throw SimpleStreamError.streamReadSizeLimitReached
 			}
@@ -249,17 +250,17 @@ public class SimpleInputStream : SimpleReadStream {
 				if !allowReadingMore {sizeToRead = size - bufferValidLength /* Checked to fit in the remaining bytes allowed to be read in "if" before this loop */}
 				else {
 					let unmaxedSizeToRead = bufferSize - (bufferStartPos + bufferValidLength) /* The remaining space in the buffer */
-					if let maxTotalReadBytesCount = streamReadSizeLimit {sizeToRead = min(unmaxedSizeToRead, maxTotalReadBytesCount - totalReadBytesCount /* Number of bytes remaining allowed to be read */)}
+					if let maxTotalReadBytesCount = handleReadSizeLimit {sizeToRead = min(unmaxedSizeToRead, maxTotalReadBytesCount - totalReadBytesCount /* Number of bytes remaining allowed to be read */)}
 					else                                                {sizeToRead =     unmaxedSizeToRead}
 				}
 				assert(sizeToRead > 0)
-				let sizeRead = sourceStream.read((bufferStart + bufferValidLength).assumingMemoryBound(to: UInt8.self), maxLength: sizeToRead)
-				guard sizeRead > 0 else {
-					throw (sizeRead == 0 ? SimpleStreamError.noMoreData : SimpleStreamError.streamReadError(streamError: sourceStream.streamError))
-				}
+				let readData = sourceHandle.readData(ofLength: sizeToRead)
+				let sizeRead = readData.count
+				guard sizeRead > 0 else {throw SimpleStreamError.noMoreData}
+				readData.withUnsafeBytes{ readBytes in (bufferStart + bufferValidLength).copyMemory(from: readBytes, byteCount: sizeRead) }
 				bufferValidLength += sizeRead
 				totalReadBytesCount += sizeRead
-				assert(streamReadSizeLimit == nil || totalReadBytesCount <= streamReadSizeLimit!)
+				assert(handleReadSizeLimit == nil || totalReadBytesCount <= handleReadSizeLimit!)
 			} while bufferValidLength < size /* Reading until we have enough data in the buffer. */
 		}
 		
