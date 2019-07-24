@@ -15,6 +15,8 @@ public class SimpleDataStream : SimpleReadStream {
 	public let sourceDataSize: Int
 	public var currentReadPosition = 0
 	
+	public var readSizeLimit: Int?
+	
 	public init(data: Data) {
 		sourceData = data
 		sourceDataSize = sourceData.count
@@ -23,6 +25,9 @@ public class SimpleDataStream : SimpleReadStream {
 	public func readData<T>(size: Int, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
 		assert(size >= 0)
 		guard (sourceDataSize - currentReadPosition) >= size else {throw SimpleStreamError.noMoreData}
+		if let maxRead = readSizeLimit {
+			guard currentReadPosition + size <= maxRead else {throw SimpleStreamError.streamReadSizeLimitReached}
+		}
 		
 		return try sourceData.withUnsafeBytes{ bytes in
 			let ret = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: size)
@@ -32,9 +37,14 @@ public class SimpleDataStream : SimpleReadStream {
 	}
 	
 	public func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
+		let sizeToEnd: Int
+		let unmaxedSizeToEnd = sourceDataSize-currentReadPosition
+		if let maxTotalReadBytesCount = readSizeLimit {sizeToEnd = min(unmaxedSizeToEnd, max(0, maxTotalReadBytesCount - currentReadPosition) /* Number of bytes remaining allowed to be read */)}
+		else                                          {sizeToEnd =     unmaxedSizeToEnd}
+		
 		guard delimiters.count > 0 else {
 			/* When there are no delimiters, we simply read the stream to the end. */
-			return try readData(size: sourceDataSize-currentReadPosition, { ret in try handler(ret, Data()) })
+			return try readData(size: sizeToEnd, { ret in try handler(ret, Data()) })
 		}
 		
 		var unmatchedDelimiters = Array(delimiters.enumerated())
@@ -42,7 +52,7 @@ public class SimpleDataStream : SimpleReadStream {
 		var matchedDatas = [Match]()
 		
 		return try sourceData.withUnsafeBytes{ bytes in
-			let searchedData = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: sourceDataSize-currentReadPosition)
+			let searchedData = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: sizeToEnd)
 			if let match = matchDelimiters(inData: searchedData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
 				return try readData(size: match.length, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}

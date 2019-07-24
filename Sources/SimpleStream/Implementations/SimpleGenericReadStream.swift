@@ -39,16 +39,12 @@ public class SimpleGenericReadStream : SimpleReadStream {
 	
 	public var currentReadPosition = 0
 	
-	/** The maximum total number of bytes to read from the stream. Can be changed
-	after some bytes have been read.
-	
-	If set to nil, there are no limits.
-	
-	If set to a value lower than or equal to the current total number of bytes
-	read, no more bytes will be read from the stream, and the
-	`.streamReadSizeLimitReached` error will be thrown when trying to read more
-	data (if the current internal buffer end is reached). */
-	public var streamReadSizeLimit: Int?
+	public var readSizeLimit: Int?
+	@available(*, deprecated, message: "Use readSizeLimit")
+	public var streamReadSizeLimit: Int? {
+		get {return readSizeLimit}
+		set {readSizeLimit = newValue}
+	}
 	
 	/** Initializes a SimpleInputStream.
 	
@@ -72,7 +68,7 @@ public class SimpleGenericReadStream : SimpleReadStream {
 		bufferValidLength = 0
 		
 		totalReadBytesCount = 0
-		streamReadSizeLimit = streamLimit
+		readSizeLimit = streamLimit
 	}
 	
 	deinit {
@@ -136,8 +132,8 @@ public class SimpleGenericReadStream : SimpleReadStream {
 			/* Let's read from the stream now! */
 			let sizeToRead: Int
 			let unmaxedSizeToRead = bufferSize - (bufferStartPos + bufferValidLength) /* The remaining space in the buffer */
-			if let maxTotalReadBytesCount = streamReadSizeLimit {sizeToRead = min(unmaxedSizeToRead, max(0, maxTotalReadBytesCount - totalReadBytesCount) /* Number of bytes remaining allowed to be read */)}
-			else                                                {sizeToRead =     unmaxedSizeToRead}
+			if let maxTotalReadBytesCount = readSizeLimit {sizeToRead = min(unmaxedSizeToRead, max(0, maxTotalReadBytesCount - totalReadBytesCount) /* Number of bytes remaining allowed to be read */)}
+			else                                          {sizeToRead =     unmaxedSizeToRead}
 			
 			assert(sizeToRead >= 0)
 			if sizeToRead == 0 {/* End of the (allowed) data */break}
@@ -145,7 +141,7 @@ public class SimpleGenericReadStream : SimpleReadStream {
 			guard sizeRead > 0 else {/* End of the data */break}
 			bufferValidLength += sizeRead
 			totalReadBytesCount += sizeRead
-			assert(streamReadSizeLimit == nil || totalReadBytesCount <= streamReadSizeLimit!)
+			assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)
 		} while true
 		
 		if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
@@ -253,7 +249,7 @@ public class SimpleGenericReadStream : SimpleReadStream {
 		let bufferStart = buffer + bufferStartPos
 		if bufferValidLength < size {
 			/* We must read from the stream. */
-			if let maxTotalReadBytesCount = streamReadSizeLimit, maxTotalReadBytesCount < totalReadBytesCount || size - bufferValidLength /* To read from stream */ > maxTotalReadBytesCount - totalReadBytesCount /* Remaining allowed bytes to be read */ {
+			if let maxTotalReadBytesCount = readSizeLimit, maxTotalReadBytesCount < totalReadBytesCount || size - bufferValidLength /* To read from stream */ > maxTotalReadBytesCount - totalReadBytesCount /* Remaining allowed bytes to be read */ {
 				/* We have to read more bytes from the stream than allowed. We bail. */
 				throw SimpleStreamError.streamReadSizeLimitReached
 			}
@@ -263,15 +259,15 @@ public class SimpleGenericReadStream : SimpleReadStream {
 				if !allowReadingMore {sizeToRead = size - bufferValidLength /* Checked to fit in the remaining bytes allowed to be read in "if" before this loop */}
 				else {
 					let unmaxedSizeToRead = bufferSize - (bufferStartPos + bufferValidLength) /* The remaining space in the buffer */
-					if let maxTotalReadBytesCount = streamReadSizeLimit {sizeToRead = min(unmaxedSizeToRead, maxTotalReadBytesCount - totalReadBytesCount /* Number of bytes remaining allowed to be read */)}
-					else                                                {sizeToRead =     unmaxedSizeToRead}
+					if let maxTotalReadBytesCount = readSizeLimit {sizeToRead = min(unmaxedSizeToRead, maxTotalReadBytesCount - totalReadBytesCount /* Number of bytes remaining allowed to be read */)}
+					else                                          {sizeToRead =     unmaxedSizeToRead}
 				}
 				assert(sizeToRead > 0)
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
 				guard sizeRead > 0 else {throw SimpleStreamError.noMoreData}
 				bufferValidLength += sizeRead
 				totalReadBytesCount += sizeRead
-				assert(streamReadSizeLimit == nil || totalReadBytesCount <= streamReadSizeLimit!)
+				assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)
 			} while bufferValidLength < size /* Reading until we have enough data in the buffer. */
 		}
 		

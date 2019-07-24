@@ -19,6 +19,19 @@ public protocol SimpleReadStream {
 	methods of the stream. */
 	var currentReadPosition: Int {get}
 	
+	/** The maximum total number of bytes allowed to be read from the underlying
+	stream. When the limit is reached, the stream must throw the
+	`.streamReadSizeLimitReached` error if read from.
+	
+	If set to nil, there are no limits.
+	
+	Can be changed after having read from the stream. If set to a value lower
+	than or equal to the current total number of bytes read, no more bytes will
+	be read from the stream, and the `.streamReadSizeLimitReached` error will be
+	thrown when trying to read more data (if the current internal buffer end is
+	reached). */
+	var readSizeLimit: Int? {get set}
+	
 	/** Read `size` bytes from the stream. The size must be >= 0.
 	
 	You get access to the read data through an unsafe raw buffer pointer whose
