@@ -9,7 +9,7 @@ import Foundation
 
 
 
-public class SimpleDataStream : SimpleReadStream {
+public final class SimpleDataStream : SimpleReadStream {
 	
 	public let sourceData: Data
 	public let sourceDataSize: Int

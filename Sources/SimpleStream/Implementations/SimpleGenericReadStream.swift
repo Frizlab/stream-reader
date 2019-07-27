@@ -26,7 +26,7 @@ public protocol GenericReadStream {
 }
 
 
-public class SimpleGenericReadStream : SimpleReadStream {
+public final class SimpleGenericReadStream : SimpleReadStream {
 	
 	public let sourceStream: GenericReadStream
 	
