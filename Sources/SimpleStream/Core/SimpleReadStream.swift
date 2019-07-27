@@ -10,7 +10,7 @@ import Foundation
 
 
 
-public protocol SimpleReadStream {
+public protocol SimpleReadStream : class {
 	
 	/** The index of the first byte returned from the stream at the next read,
 	where 0 is the first byte of the stream.
