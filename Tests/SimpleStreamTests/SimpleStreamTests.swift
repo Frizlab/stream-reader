@@ -46,7 +46,7 @@ class SimpleStreamTests : XCTestCase {
 	func testReadSmallerThanBufferData() throws {
 		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89")!)
 		s.open(); defer {s.close()}
-
+		
 		let bs = SimpleInputStream(stream: s, bufferSize: 3, bufferSizeIncrement: 1, streamReadSizeLimit: nil)
 		let d = try bs.readData(size: 2)
 		XCTAssert(d == Data(hexEncoded: "01 23")!)
@@ -55,7 +55,7 @@ class SimpleStreamTests : XCTestCase {
 	func testReadBiggerThanBufferData() throws {
 		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89")!)
 		s.open(); defer {s.close()}
-
+		
 		let bs = SimpleInputStream(stream: s, bufferSize: 3, bufferSizeIncrement: 1, streamReadSizeLimit: nil)
 		let d = try bs.readData(size: 4)
 		XCTAssert(d == Data(hexEncoded: "01 23 45 67")!)
