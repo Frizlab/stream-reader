@@ -13,7 +13,7 @@ public protocol GenericReadStream {
 	
 	/**
 	Read at most maxLength bytes from the stream and put it at the given memory
-	location. (Indeed the given buffer must be at minimum of size `len`.
+	location. (Indeed the given buffer must be at minimum of size `len`.)
 	
 	- Important: The method might rebind the memory from the pointer.
 	- Parameters:
