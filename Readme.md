@@ -19,3 +19,6 @@ let s = SimpleInputStream(stream: yourInputStream, bufferSize: 1024, bufferSizeI
 /* Read the stream until a newline (whether macOS, Windows or Classic Mac OS) is found, does not include the newline in the result. */
 let line = try s.readData(upTo: [Data("\n".utf8), Data("\r".utf8), Data("\r\n".utf8)], matchingMode: .anyMatchWins, includeDelimiter: false).data
 ```
+
+## TODO
+Make the reads async! This will change a lot of things, but the core of the project should stay the same.

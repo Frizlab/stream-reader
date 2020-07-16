@@ -12,14 +12,16 @@ import Foundation
 
 public protocol SimpleReadStream : class {
 	
-	/** The index of the first byte returned from the stream at the next read,
-	where 0 is the first byte of the stream.
+	/**
+	The index of the first byte returned from the stream at the next read, where
+	0 is the first byte of the stream.
 	
 	This is also the number of bytes that has been returned by the different read
 	methods of the stream. */
 	var currentReadPosition: Int {get}
 	
-	/** The maximum total number of bytes allowed to be read from the underlying
+	/**
+	The maximum total number of bytes allowed to be read from the underlying
 	stream. When the limit is reached, the stream must throw the
 	`.streamReadSizeLimitReached` error if read from.
 	
@@ -32,7 +34,8 @@ public protocol SimpleReadStream : class {
 	reached). */
 	var readSizeLimit: Int? {get set}
 	
-	/** Read `size` bytes from the stream. The size must be >= 0.
+	/**
+	Read `size` bytes from the stream. The size must be >= 0.
 	
 	You get access to the read data through an unsafe raw buffer pointer whose
 	memory is guaranteed to be valid and immutable while you’re in the handler.
@@ -51,8 +54,9 @@ public protocol SimpleReadStream : class {
 	- Returns: The value returned by your handler. */
 	func readData<T>(size: Int, _ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T
 	
-	/** Read from the stream, until one of the given delimiters is found. An
-	empty delimiter matches nothing.
+	/**
+	Read from the stream, until one of the given delimiters is found. An empty
+	delimiter matches nothing.
 	
 	If the delimiters list is empty, the data is read to the end of the stream
 	(or the stream size limit).
@@ -125,7 +129,8 @@ public extension SimpleReadStream {
 
 
 
-/** How to match the delimiters for the `readData(upToDelimiters:...)` method.
+/**
+How to match the delimiters for the `readData(upToDelimiters:...)` method.
 
 In the description of the different cases, we'll use a common example:
 
@@ -141,7 +146,8 @@ read from the stream;
 - In the cache, we'll only have `"01234"` read. */
 public enum DelimiterMatchingMode {
 	
-	/** The lightest match algorithm (usually). In the given example, the third
+	/**
+	The lightest match algorithm (usually). In the given example, the third
 	delimiter (`"234"`) will match, because the `SimpleReadStream` will first try
 	to match the delimiters against what it already have in memory.
 	
@@ -153,12 +159,14 @@ public enum DelimiterMatchingMode {
 	possible. */
 	case anyMatchWins
 	
-	/** The matching delimiter that gives the shortest data will be used. In our
+	/**
+	The matching delimiter that gives the shortest data will be used. In our
 	example, it will be the fourth one (`"12345"`) which will yield the shortest
 	data (`"0"`). */
 	case shortestDataWins
 	
-	/** The matching delimiter that gives the longest data will be used. In our
+	/**
+	The matching delimiter that gives the longest data will be used. In our
 	example, it will be the second one (`"67"`) which will yield the longest data
 	(`"012345"`).
 	
@@ -169,7 +177,8 @@ public enum DelimiterMatchingMode {
 	all of the delimiters match… */
 	case longestDataWins
 	
-	/** The first matching delimiter will be used. In our example, it will be the
+	/**
+	The first matching delimiter will be used. In our example, it will be the
 	first one (`"45"`).
 	
 	- Important: Use this matching mode with care! It might have to read all of
