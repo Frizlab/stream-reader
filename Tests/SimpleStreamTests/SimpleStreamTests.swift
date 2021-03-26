@@ -33,6 +33,9 @@ class SimpleStreamTests : XCTestCase {
 		let ds = SimpleDataStream(data: d)
 		let rd = try ds.readData(upTo: [delim], matchingMode: .anyMatchWins, includeDelimiter: false).data
 		XCTAssert(rd == Data(hexEncoded: "01 23")!)
+		
+		let nx = try ds.readData(size: 1)
+		XCTAssert(nx == Data(hexEncoded: "45")!)
 	}
 	
 	func testDataStreamReadToEnd() throws {
@@ -81,7 +84,7 @@ class SimpleStreamTests : XCTestCase {
 		defer {buffer.deallocate()}
 		
 		let fh = try FileHandle(forReadingFrom: tmpFileURL)
-		fh.closeFile() /* Make the reads following this line fail on purpose */
+		try fh.close() /* Make the reads following this line fail on purpose */
 		
 		XCTAssertThrowsError(try fh.read(buffer, maxLength: bufferSize))
 	}
