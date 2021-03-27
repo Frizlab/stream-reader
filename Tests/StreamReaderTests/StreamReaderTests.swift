@@ -115,9 +115,11 @@ class StreamReaderTests : XCTestCase {
 	func testStreamPeekWithSize() throws {
 		let d = Data(hexEncoded: "01 23 45 67 89")!
 		
-		let s = DataReader(data: d)
-		XCTAssertEqual(try s.peekData(size: 1), Data(hexEncoded: "01")!)
-		XCTAssertEqual(try s.peekData(size: 1), Data(hexEncoded: "01")!)
+		let s = InputStream(data: d)
+		s.open(); defer {s.close()}
+		let reader = InputStreamReader(stream: s, bufferSize: 1, bufferSizeIncrement: 1)
+		XCTAssertEqual(try reader .peekData(size: 1), Data(hexEncoded: "01")!)
+		XCTAssertEqual(try reader .peekData(size: 1), Data(hexEncoded: "01")!)
 	}
 	
 	func testStreamPeekWithUpTo() throws {

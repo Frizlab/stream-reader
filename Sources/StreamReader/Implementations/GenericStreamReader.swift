@@ -72,11 +72,16 @@ public final class GenericStreamReader : StreamReader {
 	
 	deinit {
 		buffer.deallocate()
+		bufferSize = 0
 	}
 	
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
-		let ret = try readDataNoCurrentPosIncrement(size: size)
-		currentReadPosition += size
+		let ret = try readDataNoCurrentPosIncrement(size: size, allowReadingLess: allowReadingLess)
+		if updateReadPosition {
+			currentReadPosition += size
+			bufferValidLength -= size
+			bufferStartPos += size
+		}
 		assert(ret.count == size)
 		return try handler(ret)
 	}
@@ -89,14 +94,16 @@ public final class GenericStreamReader : StreamReader {
 		
 		var searchOffset = 0
 		repeat {
-			assert(bufferValidLength - searchOffset >= 0)
+			assert(bufferValidLength - searchOffset >= 0, "INTERNAL LOGIC ERROR")
 			var bufferStart = buffer + bufferStartPos
 			let bufferSearchData = UnsafeRawBufferPointer(start: bufferStart + searchOffset, count: bufferValidLength - searchOffset)
 			if let match = matchDelimiters(inData: bufferSearchData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
 				let returnedLength = searchOffset + match.length
-				bufferStartPos += returnedLength
-				bufferValidLength -= returnedLength
-				currentReadPosition += returnedLength
+				if updateReadPosition {
+					bufferStartPos += returnedLength
+					bufferValidLength -= returnedLength
+					currentReadPosition += returnedLength
+				}
 				return try handler(UnsafeRawBufferPointer(start: bufferStart, count: returnedLength), delimiters[match.delimiterIdx])
 			}
 			
@@ -144,9 +151,11 @@ public final class GenericStreamReader : StreamReader {
 		} while true
 		
 		if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
-			bufferStartPos += match.length
-			bufferValidLength -= match.length
-			currentReadPosition += match.length
+			if updateReadPosition {
+				bufferStartPos += match.length
+				bufferValidLength -= match.length
+				currentReadPosition += match.length
+			}
 			return try handler(UnsafeRawBufferPointer(start: buffer + bufferStartPos, count: match.length), delimiters[match.delimiterIdx])
 		}
 		
@@ -156,9 +165,11 @@ public final class GenericStreamReader : StreamReader {
 			let returnedLength = bufferValidLength
 			let bufferStart = buffer + bufferStartPos
 			
-			currentReadPosition += bufferValidLength
-			bufferStartPos += bufferValidLength
-			bufferValidLength = 0
+			if updateReadPosition {
+				currentReadPosition += bufferValidLength
+				bufferStartPos += bufferValidLength
+				bufferValidLength = 0
+			}
 			
 			return try handler(UnsafeRawBufferPointer(start: bufferStart, count: returnedLength), Data())
 		}
@@ -169,7 +180,8 @@ public final class GenericStreamReader : StreamReader {
 	   *************** */
 	
 	/* Note: We choose not to use UnsafeMutableRawBufferPointer as we’ll do many
-	 *       pointer arithmetic, it wouldn’t be very practical. */
+	 *       pointer arithmetic, it wouldn’t be very practical, mostly because
+	 *       UnsafeMutableRawBufferPointer’s baseAdress is optional. */
 	
 	/** The current buffer in use. Its size should be `defaultBufferSize` most of
 	the time. */
@@ -181,21 +193,32 @@ public final class GenericStreamReader : StreamReader {
 	/** The total number of bytes read from the source stream. */
 	private var totalReadBytesCount = 0
 	
-	private func readDataNoCurrentPosIncrement(size: Int) throws -> UnsafeRawBufferPointer {
+	/**
+	Reads and returns the asked size from buffer and completes with the stream if
+	needed. Uses the buffer to read the first bytes and store the bytes read from
+	the stream if applicable. If the buffer is not big enough, it will be resized
+	to be able to hold the required size.
+	
+	- Parameter size: The size of the data to return.
+	- Parameter allowReadingLess: If `true`, this method may read less data than
+	asked in the `dataSize` parameter.
+	- Throws: `StreamReaderError` in case of error.
+	- Returns: The read data from the buffer or the stream if necessary. */
+	private func readDataNoCurrentPosIncrement(size: Int, allowReadingLess: Bool) throws -> UnsafeRawBufferPointer {
 		let bufferStart = buffer + bufferStartPos
 		
 		switch size {
 		case let s where s <= bufferSize - bufferStartPos:
 			/* The buffer is big enough to hold the size we want to read, from
 			 * buffer start pos. */
-			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingMore: true)
+			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
 			
 		case let s where s <= defaultBufferSize:
 			/* The default sized buffer is enough to hold the size we want to read.
 			 * Let's copy the current buffer to the beginning of the default sized
 			 * buffer! And get rid of the old (bigger) buffer if needed. */
 			if bufferSize != defaultBufferSize {
-				assert(bufferSize > defaultBufferSize)
+				assert(bufferSize > defaultBufferSize, "INTERNAL LOGIC ERROR")
 				
 				let oldBuffer = buffer
 				buffer = UnsafeMutableRawPointer.allocate(byteCount: bufferSize, alignment: MemoryLayout<UInt8>.alignment)
@@ -206,7 +229,7 @@ public final class GenericStreamReader : StreamReader {
 				buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
 			}
 			bufferStartPos = 0
-			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingMore: true)
+			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
 			
 		case let s where s <= bufferSize:
 			/* The current buffer total size is enough to hold the size we want to
@@ -214,7 +237,7 @@ public final class GenericStreamReader : StreamReader {
 			 * start position is 0. */
 			buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
 			bufferStartPos = 0
-			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingMore: true)
+			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
 			
 		default:
 			/* The buffer is not big enough to hold the data we want to read. We
@@ -227,22 +250,25 @@ public final class GenericStreamReader : StreamReader {
 			bufferStartPos = 0
 			oldBuffer.deallocate()
 			
-			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingMore: false /* Not actually needed as the buffer size is exactly of the required size… */)
+			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: false /* Not actually needed as the buffer size is exactly of the required size… */)
 		}
 	}
 	
 	/**
-	Reads and return the asked size from buffer and completes with the stream if
+	Reads and returns the asked size from buffer and completes with the stream if
 	needed. Uses the buffer to read the first bytes and store the bytes read from
 	the stream if applicable. The buffer must be big enough to contain the asked
 	size **from** `bufferStartPos`.
 	
 	- Parameter dataSize: The size of the data to return.
+	- Parameter allowReadingLess: If `true`, this method may read less data than
+	asked in the `dataSize` parameter.
 	- Parameter allowReadingMore: If `true`, this method may read more data than
-	what is actually needed from the stream.
+	what is actually needed from the stream if the `readSizeLimit` or the stream
+	end is reached.
 	- Throws: `StreamReaderError` in case of error.
 	- Returns: The read data from the buffer or the stream if necessary. */
-	private func readDataAssumingBufferIsBigEnough(dataSize size: Int, allowReadingMore: Bool) throws -> UnsafeRawBufferPointer {
+	private func readDataAssumingBufferIsBigEnough(dataSize size: Int, allowReadingLess: Bool, allowReadingMore: Bool) throws -> UnsafeRawBufferPointer {
 		assert(bufferSize - bufferStartPos >= size)
 		
 		let bufferStart = buffer + bufferStartPos
@@ -270,8 +296,6 @@ public final class GenericStreamReader : StreamReader {
 			} while bufferValidLength < size /* Reading until we have enough data in the buffer. */
 		}
 		
-		bufferValidLength -= size
-		bufferStartPos += size
 		return UnsafeRawBufferPointer(start: bufferStart, count: size)
 	}
 	
