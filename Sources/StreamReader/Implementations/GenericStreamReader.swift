@@ -35,9 +35,9 @@ public final class GenericStreamReader : StreamReader {
 	public let defaultBufferSize: Int
 	/** The number of bytes by which to increment the current buffer size when
 	reading up to given delimiters and there is no space left in the buffer. */
-	public let bufferSizeIncrement: Int
+	public var bufferSizeIncrement: Int
 	
-	public var currentReadPosition = 0
+	public private(set) var currentReadPosition = 0
 	public var readSizeLimit: Int?
 	
 	/**
