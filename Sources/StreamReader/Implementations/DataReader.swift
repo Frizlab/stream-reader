@@ -35,9 +35,7 @@ public final class DataReader : StreamReader {
 		}
 		
 		return try sourceData.withUnsafeBytes{ bytes in
-			let sizeToRead: Int
-			if let maxReadSize = readSizeLimit {sizeToRead = max(0, min(size, min(maxReadSize, sourceDataSize) - currentReadPosition))}
-			else                               {sizeToRead =        min(size, sourceDataSize - currentReadPosition)}
+			let sizeToRead = sizeConstrainedToRemainingAllowedSizeToRead(size)
 			let ret = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: sizeToRead)
 			if updateReadPosition {currentReadPosition += sizeToRead}
 			return try handler(ret)
@@ -45,14 +43,14 @@ public final class DataReader : StreamReader {
 	}
 	
 	public func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool, includeDelimiter: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
-		let sizeToEnd: Int
-		let unmaxedSizeToEnd = sourceDataSize-currentReadPosition
-		if let maxTotalReadBytesCount = readSizeLimit {sizeToEnd = min(unmaxedSizeToEnd, max(0, maxTotalReadBytesCount - currentReadPosition) /* Number of bytes remaining allowed to be read */)}
-		else                                          {sizeToEnd =     unmaxedSizeToEnd}
+		let sizeToEnd = sizeToAllowedEnd
 		
-		guard delimiters.count > 0 else {
-			/* When there are no delimiters, we simply read the stream to the end. */
-			return try readData(size: sizeToEnd, { ret in try handler(ret, Data()) })
+		if delimiters.count == 0 || (!failIfNotFound && delimiters.count == 1 && delimiters[0] == Data()) {
+			/* When there are no delimiters or if there is only one delimiter which
+			 * is empty and we do not fail if we do not find the delimiter, we
+			 * simply read the stream to the end.
+			 * There may be more optimization possible, but we don’t care for now. */
+			return try readData(size: sizeToEnd, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, Data()) })
 		}
 		
 		var unmatchedDelimiters = Array(delimiters.enumerated())
@@ -62,16 +60,29 @@ public final class DataReader : StreamReader {
 		return try sourceData.withUnsafeBytes{ bytes in
 			let searchedData = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: sizeToEnd)
 			if let match = matchDelimiters(inData: searchedData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
-				return try readData(size: match.length, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
+				return try readData(size: match.length, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}
 			/* matchDelimiters did not find an indisputable match. However, we have
 			 * fed all the data we have to it. We cannot find more matches! We
 			 * simply return the best match we got. */
 			if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
-				return try readData(size: match.length, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
+				return try readData(size: match.length, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}
-			throw StreamReaderError.delimitersNotFound
+			if failIfNotFound {
+				throw StreamReaderError.delimitersNotFound
+			} else {
+				return try readData(size: sizeToEnd, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, Data()) })
+			}
 		}
+	}
+	
+	private var sizeToAllowedEnd: Int {
+		return sizeConstrainedToRemainingAllowedSizeToRead(sourceDataSize - currentReadPosition)
+	}
+	
+	private func sizeConstrainedToRemainingAllowedSizeToRead(_ size: Int) -> Int {
+		if let maxTotalReadBytesCount = readSizeLimit {return max(0, min(size, min(maxTotalReadBytesCount, sourceDataSize) - currentReadPosition))}
+		else                                          {return        min(size, sourceDataSize - currentReadPosition)}
 	}
 	
 }
