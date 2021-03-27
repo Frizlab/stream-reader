@@ -38,13 +38,7 @@ public final class SimpleGenericReadStream : SimpleReadStream {
 	public let bufferSizeIncrement: Int
 	
 	public var currentReadPosition = 0
-	
 	public var readSizeLimit: Int?
-	@available(*, deprecated, message: "Use readSizeLimit")
-	public var streamReadSizeLimit: Int? {
-		get {return readSizeLimit}
-		set {readSizeLimit = newValue}
-	}
 	
 	/** Initializes a SimpleInputStream.
 	
@@ -54,7 +48,7 @@ public final class SimpleGenericReadStream : SimpleReadStream {
 	- Parameter streamReadSizeLimit: The maximum number of bytes allowed to be
 	read from the stream.
 	*/
-	public init(stream: GenericReadStream, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, streamReadSizeLimit streamLimit: Int?) {
+	public init(stream: GenericReadStream, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, readSizeLimit limit: Int? = nil) {
 		assert(size > 0)
 		
 		sourceStream = stream
@@ -68,7 +62,7 @@ public final class SimpleGenericReadStream : SimpleReadStream {
 		bufferValidLength = 0
 		
 		totalReadBytesCount = 0
-		readSizeLimit = streamLimit
+		readSizeLimit = limit
 	}
 	
 	deinit {

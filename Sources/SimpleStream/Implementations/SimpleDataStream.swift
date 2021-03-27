@@ -17,9 +17,10 @@ public final class SimpleDataStream : SimpleReadStream {
 	
 	public var readSizeLimit: Int?
 	
-	public init(data: Data) {
+	public init(data: Data, readSizeLimit limit: Int? = nil) {
 		sourceData = data
 		sourceDataSize = sourceData.count
+		readSizeLimit = limit
 	}
 	
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {

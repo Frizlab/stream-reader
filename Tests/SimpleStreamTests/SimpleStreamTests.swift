@@ -46,20 +46,60 @@ class SimpleStreamTests : XCTestCase {
 		XCTAssert(rd == d)
 	}
 	
+	func testDataStreamReadBiggerThanStream() throws {
+		let d = Data(hexEncoded: "01 23 45 67 89")!
+		
+		let ds = SimpleDataStream(data: d)
+		XCTAssertThrowsError(try ds.readData(size: 6))
+		let rd = try ds.readData(size: 6, allowReadingLess: true)
+		XCTAssert(rd == d)
+	}
+	
+	func testDataStreamReadBiggerThanLimit() throws {
+		let d = Data(hexEncoded: "01 23 45 67 89")!
+		
+		let ds = SimpleDataStream(data: d, readSizeLimit: 3)
+		XCTAssertThrowsError(try ds.readData(size: 4))
+		let rd = try ds.readData(size: 4, allowReadingLess: true)
+		XCTAssert(rd == d[0..<3])
+	}
+	
+	func testReadBiggerThanStream() throws {
+		let d = Data(hexEncoded: "01 23 45 67 89")!
+		let s = InputStream(data: d)
+		s.open(); defer {s.close()}
+		
+		let bs = SimpleInputStream(stream: s, bufferSize: 3, bufferSizeIncrement: 1)
+		XCTAssertThrowsError(try bs.readData(size: 6))
+		let rd = try bs.readData(size: 6, allowReadingLess: true)
+		XCTAssert(rd == d)
+	}
+	
+	func testReadBiggerThanLimit() throws {
+		let d = Data(hexEncoded: "01 23 45 67 89")!
+		let s = InputStream(data: d)
+		s.open(); defer {s.close()}
+		
+		let bs = SimpleInputStream(stream: s, bufferSize: 3, bufferSizeIncrement: 1, readSizeLimit: 3)
+		XCTAssertThrowsError(try bs.readData(size: 4))
+		let rd = try bs.readData(size: 4, allowReadingLess: true)
+		XCTAssert(rd == d[0..<3])
+	}
+	
 	func testReadSmallerThanBufferData() throws {
 		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89")!)
 		s.open(); defer {s.close()}
 		
-		let bs = SimpleInputStream(stream: s, bufferSize: 3, bufferSizeIncrement: 1, streamReadSizeLimit: nil)
+		let bs = SimpleInputStream(stream: s, bufferSize: 3, bufferSizeIncrement: 1)
 		let d = try bs.readData(size: 2)
 		XCTAssert(d == Data(hexEncoded: "01 23")!)
 	}
-
+	
 	func testReadBiggerThanBufferData() throws {
 		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89")!)
 		s.open(); defer {s.close()}
 		
-		let bs = SimpleInputStream(stream: s, bufferSize: 3, bufferSizeIncrement: 1, streamReadSizeLimit: nil)
+		let bs = SimpleInputStream(stream: s, bufferSize: 3, bufferSizeIncrement: 1)
 		let d = try bs.readData(size: 4)
 		XCTAssert(d == Data(hexEncoded: "01 23 45 67")!)
 	}
@@ -70,7 +110,7 @@ class SimpleStreamTests : XCTestCase {
 		try d.write(to: tmpFileURL)
 		defer {_ = try? FileManager.default.removeItem(at: tmpFileURL)}
 		
-		let stream = try SimpleFileHandleStream(stream: FileHandle(forReadingFrom: tmpFileURL), bufferSize: 3, bufferSizeIncrement: 3, streamReadSizeLimit: nil)
+		let stream = try SimpleFileHandleStream(stream: FileHandle(forReadingFrom: tmpFileURL), bufferSize: 3, bufferSizeIncrement: 3)
 		let rd = try stream.readDataToEnd()
 		XCTAssert(rd == d)
 	}
