@@ -11,24 +11,19 @@ import Foundation
 
 public enum SimpleStreamError : Error {
 	
-	/** The stream ended before the required data size could be read. */
-	case noMoreData
+	/**
+	The stream ended before the required data size could be read.
 	
-	/** The maximum number of bytes allowed to be read from the stream have been
-	read.
+	If `readSizeLimitReached` is true, there might be more data in the stream,
+	but configuration stops from reading more. Otherwise the actual end of the
+	stream has been reached. */
+	case noMoreData(readSizeLimitReached: Bool)
 	
-	- Important: Do not assume the position of the stream is necessarily at the
-	max number of bytes allowed to be read. For optimization reasons, we might
-	throw this error before all the bytes have actually been read from the
-	stream. */
-	case streamReadSizeLimitReached
+	/** Cannot find any of the delimiters in the stream when using the
+	`readData(upToDelimiters:...)` method. */
+	case delimitersNotFound
 	
 	/** An error occurred reading the stream. */
 	case streamReadError(streamError: Error?)
-	
-	/** Cannot find any of the delimiters in the stream when using the
-	`readData(upToDelimiters:...)` method. (All of the stream has been read, or
-	the stream limit has been reached if this error is thrown.) */
-	case delimitersNotFound
 	
 }
