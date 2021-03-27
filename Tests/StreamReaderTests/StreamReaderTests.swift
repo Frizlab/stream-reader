@@ -139,7 +139,7 @@ class StreamReaderTests : XCTestCase {
 		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 1)
 		XCTAssertThrowsError(try bs.readData(size: 6))
 		let rd = try bs.readData(size: 6, allowReadingLess: true)
-		XCTAssert(rd == d)
+		XCTAssertEqual(rd, d)
 	}
 	
 	func testReadBiggerThanLimit() throws {
@@ -150,7 +150,7 @@ class StreamReaderTests : XCTestCase {
 		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 1, readSizeLimit: 3)
 		XCTAssertThrowsError(try bs.readData(size: 4))
 		let rd = try bs.readData(size: 4, allowReadingLess: true)
-		XCTAssert(rd == d[0..<3])
+		XCTAssertEqual(rd, d[0..<3])
 	}
 	
 	func testReadSmallerThanBufferData() throws {

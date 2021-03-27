@@ -78,11 +78,11 @@ public final class GenericStreamReader : StreamReader {
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
 		let ret = try readDataNoCurrentPosIncrement(size: size, allowReadingLess: allowReadingLess)
 		if updateReadPosition {
-			currentReadPosition += size
-			bufferValidLength -= size
-			bufferStartPos += size
+			currentReadPosition += ret.count
+			bufferValidLength -= ret.count
+			bufferStartPos += ret.count
 		}
-		assert(ret.count == size)
+		assert(ret.count <= size, "INTERNAL ERROR")
 		return try handler(ret)
 	}
 	
@@ -289,14 +289,18 @@ public final class GenericStreamReader : StreamReader {
 				}
 				assert(sizeToRead > 0)
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
-				guard sizeRead > 0 else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
+				guard sizeRead > 0 else {
+					if allowReadingLess {break}
+					else                {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
+				}
 				bufferValidLength += sizeRead
 				totalReadBytesCount += sizeRead
 				assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)
 			} while bufferValidLength < size /* Reading until we have enough data in the buffer. */
 		}
 		
-		return UnsafeRawBufferPointer(start: bufferStart, count: size)
+		assert(allowReadingLess || bufferValidLength >= size)
+		return UnsafeRawBufferPointer(start: bufferStart, count: min(bufferValidLength, size))
 	}
 	
 }
