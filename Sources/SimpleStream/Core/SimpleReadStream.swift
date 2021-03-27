@@ -117,11 +117,11 @@ public protocol SimpleReadStream : class {
 
 public extension SimpleReadStream {
 	
-	func readData<T>(size: Int, allowReadingLess: Bool, _ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T {
+	func readData<T>(size: Int, allowReadingLess: Bool = false, _ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T {
 		return try readData(size: size, allowReadingLess: allowReadingLess, updateReadPosition: true, handler)
 	}
 	
-	func peekData<T>(size: Int, allowReadingLess: Bool, _ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T {
+	func peekData<T>(size: Int, allowReadingLess: Bool = false, _ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T {
 		return try readData(size: size, allowReadingLess: allowReadingLess, updateReadPosition: false, handler)
 	}
 	
@@ -137,12 +137,12 @@ public extension SimpleReadStream {
 
 
 public extension SimpleReadStream {
-
-	func readData(size: Int, allowReadingLess: Bool) throws -> Data {
+	
+	func readData(size: Int, allowReadingLess: Bool = false) throws -> Data {
 		return try readData(size: size, allowReadingLess: allowReadingLess, { bytes in Data(bytes) })
 	}
 	
-	func peekData(size: Int, allowReadingLess: Bool) throws -> Data {
+	func peekData(size: Int, allowReadingLess: Bool = false) throws -> Data {
 		return try peekData(size: size, allowReadingLess: allowReadingLess, { bytes in Data(bytes) })
 	}
 	

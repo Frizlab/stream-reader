@@ -16,15 +16,23 @@ let rd = try ds.readDataToEnd()
 assert(rd == d)
 ----
 
-### Reading a Stream Until a Delimitor Is Found
+=== Reading a Stream Until a Delimitor Is Found
 [source,swift]
 ----
 let s = SimpleInputStream(stream: yourInputStream, bufferSize: 1024, bufferSizeIncrement: 512, streamReadSizeLimit: nil)
-/* Read the stream until a newline (whether macOS or Classic Mac OS) is found,
- * does not include the newline in the result. */
-let line = try s.readData(upTo: [Data("\n".utf8), Data("\r".utf8)], matchingMode: .anyMatchWins, includeDelimiter: false).data
-/* Note: If the file has Windows new lines, this will add an empty new line
- *       after each line (the separator for Windows being "\r\n"). */
+/* Read the stream until a newline (whether macOS or Classic MacOS) is found, and returns the data without the newline. */
+let (line, separator) = try s.readData(upTo: [Data("\n".utf8), Data("\r".utf8)], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: false)
+_ = try s.readData(size: separator.count) /* We must read the line separator before next read probably :) */
+----
+
+Note: In the example above, if the file has Windows new lines, this will add an
+empty new line after each line (the separator for Windows being `\r\n`).
+
+SimpleStream has also a dedicated method to read a line in a stream:
+[source,swift]
+----
+/* Does not return the line separator, _but_ set stream position after the line separator. */
+let lineData = try s.readLine(allowUnixNewLines: true, allowLegacyMacOSNewLines: true, allowWindowsNewLines: true).line
 ----
 
 == TODO
