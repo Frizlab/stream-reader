@@ -211,7 +211,7 @@ public final class GenericStreamReader : StreamReader {
 		case let s where s <= bufferSize - bufferStartPos:
 			/* The buffer is big enough to hold the size we want to read, from
 			 * buffer start pos. */
-			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
+			return try readDataNoCurrentPosIncrementAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
 			
 		case let s where s <= defaultBufferSize:
 			/* The default sized buffer is enough to hold the size we want to read.
@@ -229,7 +229,7 @@ public final class GenericStreamReader : StreamReader {
 				buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
 			}
 			bufferStartPos = 0
-			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
+			return try readDataNoCurrentPosIncrementAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
 			
 		case let s where s <= bufferSize:
 			/* The current buffer total size is enough to hold the size we want to
@@ -237,7 +237,7 @@ public final class GenericStreamReader : StreamReader {
 			 * start position is 0. */
 			buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
 			bufferStartPos = 0
-			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
+			return try readDataNoCurrentPosIncrementAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
 			
 		default:
 			/* The buffer is not big enough to hold the data we want to read. We
@@ -250,7 +250,7 @@ public final class GenericStreamReader : StreamReader {
 			bufferStartPos = 0
 			oldBuffer.deallocate()
 			
-			return try readDataAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: false /* Not actually needed as the buffer size is exactly of the required size… */)
+			return try readDataNoCurrentPosIncrementAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: false /* Not actually needed as the buffer size is exactly of the required size… */)
 		}
 	}
 	
@@ -268,7 +268,7 @@ public final class GenericStreamReader : StreamReader {
 	end is reached.
 	- Throws: `StreamReaderError` in case of error.
 	- Returns: The read data from the buffer or the stream if necessary. */
-	private func readDataAssumingBufferIsBigEnough(dataSize size: Int, allowReadingLess: Bool, allowReadingMore: Bool) throws -> UnsafeRawBufferPointer {
+	private func readDataNoCurrentPosIncrementAssumingBufferIsBigEnough(dataSize size: Int, allowReadingLess: Bool, allowReadingMore: Bool) throws -> UnsafeRawBufferPointer {
 		assert(bufferSize - bufferStartPos >= size)
 		
 		let bufferStart = buffer + bufferStartPos
