@@ -75,14 +75,14 @@ public final class SimpleGenericReadStream : SimpleReadStream {
 		buffer.deallocate()
 	}
 	
-	public func readData<T>(size: Int, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
+	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
 		let ret = try readDataNoCurrentPosIncrement(size: size)
 		currentReadPosition += size
 		assert(ret.count == size)
 		return try handler(ret)
 	}
 	
-	public func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
+	public func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool, includeDelimiter: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
 		let (minDelimiterLength, maxDelimiterLength) = delimiters.reduce((delimiters.first?.count ?? 0, 0), { (min($0.0, $1.count), max($0.1, $1.count)) })
 		
 		var unmatchedDelimiters = Array(delimiters.enumerated())
@@ -251,7 +251,7 @@ public final class SimpleGenericReadStream : SimpleReadStream {
 			/* We must read from the stream. */
 			if let maxTotalReadBytesCount = readSizeLimit, maxTotalReadBytesCount < totalReadBytesCount || size - bufferValidLength /* To read from stream */ > maxTotalReadBytesCount - totalReadBytesCount /* Remaining allowed bytes to be read */ {
 				/* We have to read more bytes from the stream than allowed. We bail. */
-				throw SimpleStreamError.streamReadSizeLimitReached
+				throw SimpleStreamError.noMoreData(readSizeLimitReached: true)
 			}
 			
 			repeat {
@@ -264,7 +264,7 @@ public final class SimpleGenericReadStream : SimpleReadStream {
 				}
 				assert(sizeToRead > 0)
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
-				guard sizeRead > 0 else {throw SimpleStreamError.noMoreData}
+				guard sizeRead > 0 else {throw SimpleStreamError.noMoreData(readSizeLimitReached: false)}
 				bufferValidLength += sizeRead
 				totalReadBytesCount += sizeRead
 				assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)

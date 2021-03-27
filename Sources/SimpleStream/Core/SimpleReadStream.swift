@@ -1,6 +1,6 @@
 /*
  * SimpleReadStream.swift
- * BSONSerialization
+ * SimpleStream
  *
  * Created by François Lamboley on 12/4/16.
  * Copyright © 2016 frizlab. All rights reserved.

@@ -22,11 +22,11 @@ public final class SimpleDataStream : SimpleReadStream {
 		sourceDataSize = sourceData.count
 	}
 	
-	public func readData<T>(size: Int, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
+	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
 		assert(size >= 0)
-		guard (sourceDataSize - currentReadPosition) >= size else {throw SimpleStreamError.noMoreData}
+		guard (sourceDataSize - currentReadPosition) >= size else {throw SimpleStreamError.noMoreData(readSizeLimitReached: false)}
 		if let maxRead = readSizeLimit {
-			guard currentReadPosition + size <= maxRead else {throw SimpleStreamError.streamReadSizeLimitReached}
+			guard currentReadPosition + size <= maxRead else {throw SimpleStreamError.noMoreData(readSizeLimitReached: true)}
 		}
 		
 		return try sourceData.withUnsafeBytes{ bytes in
@@ -36,7 +36,7 @@ public final class SimpleDataStream : SimpleReadStream {
 		}
 	}
 	
-	public func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
+	public func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool, includeDelimiter: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
 		let sizeToEnd: Int
 		let unmaxedSizeToEnd = sourceDataSize-currentReadPosition
 		if let maxTotalReadBytesCount = readSizeLimit {sizeToEnd = min(unmaxedSizeToEnd, max(0, maxTotalReadBytesCount - currentReadPosition) /* Number of bytes remaining allowed to be read */)}
