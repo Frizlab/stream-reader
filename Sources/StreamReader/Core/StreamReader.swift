@@ -1,6 +1,6 @@
 /*
- * SimpleReadStream.swift
- * SimpleStream
+ * StreamReader.swift
+ * StreamReader
  *
  * Created by François Lamboley on 12/4/16.
  * Copyright © 2016 frizlab. All rights reserved.
@@ -10,7 +10,7 @@ import Foundation
 
 
 
-public protocol SimpleReadStream : class {
+public protocol StreamReader : class {
 	
 	/**
 	The index of the first byte returned from the stream at the next read, where
@@ -74,10 +74,10 @@ public protocol SimpleReadStream : class {
 	
 	The following calls are equivalent:
 	```
-	readData<T>(upTo: [],                        matchingMode: .anyMatchWins, includeDelimiter: true, failIfNotFound: true,  updateReadPosition: true, myHandler)
-	readData<T>(upTo: [],                        matchingMode: .anyMatchWins, includeDelimiter: true, failIfNotFound: false, updateReadPosition: true, myHandler)
-	readData<T>(upTo: [Data()],                  matchingMode: .anyMatchWins, includeDelimiter: true, failIfNotFound: false, updateReadPosition: true, myHandler)
-	readData<T>(upTo: [nonEmptyDataNotInStream], matchingMode: .anyMatchWins, includeDelimiter: true, failIfNotFound: false, updateReadPosition: true, myHandler)
+	readData<T>(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: true,  includeDelimiter: true, updateReadPosition: true, myHandler)
+	readData<T>(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true, updateReadPosition: true, myHandler)
+	readData<T>(upTo: [Data()],                  matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true, updateReadPosition: true, myHandler)
+	readData<T>(upTo: [nonEmptyDataNotInStream], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true, updateReadPosition: true, myHandler)
 	```
 	
 	Choose your matching mode with care. Some mode may have to read and put the
@@ -115,7 +115,7 @@ public protocol SimpleReadStream : class {
 }
 
 
-public extension SimpleReadStream {
+public extension StreamReader {
 	
 	func readData<T>(size: Int, allowReadingLess: Bool = false, _ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T {
 		return try readData(size: size, allowReadingLess: allowReadingLess, updateReadPosition: true, handler)
@@ -136,7 +136,7 @@ public extension SimpleReadStream {
 }
 
 
-public extension SimpleReadStream {
+public extension StreamReader {
 	
 	func readData(size: Int, allowReadingLess: Bool = false) throws -> Data {
 		return try readData(size: size, allowReadingLess: allowReadingLess, { bytes in Data(bytes) })
@@ -150,6 +150,10 @@ public extension SimpleReadStream {
 		return try readData(upTo: delimiters, matchingMode: matchingMode, failIfNotFound: failIfNotFound, includeDelimiter: includeDelimiter, { bytes, delimiterThatMatched in (Data(bytes), delimiterThatMatched) })
 	}
 	
+	func peekData(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool = true, includeDelimiter: Bool) throws -> (data: Data, delimiter: Data) {
+		return try peekData(upTo: delimiters, matchingMode: matchingMode, failIfNotFound: failIfNotFound, includeDelimiter: includeDelimiter, { bytes, delimiterThatMatched in (Data(bytes), delimiterThatMatched) })
+	}
+	
 	func readDataToEnd<T>(_ handler: (_ bytes: UnsafeRawBufferPointer) throws -> T) throws -> T {
 		return try readData(upTo: [], matchingMode: .anyMatchWins, failIfNotFound: true, includeDelimiter: true, { bytes, _ in try handler(bytes) })
 	}
@@ -159,8 +163,8 @@ public extension SimpleReadStream {
 	}
 	
 	func readType<Type>() throws -> Type {
-		/* The bind should be ok because SimpleReadStream guarantees the memory to
-		 * be immutable in the closure. */
+		/* The bind should be ok because StreamReader guarantees the memory to be
+		 * immutable in the closure. */
 		return try readData(size: MemoryLayout<Type>.size, allowReadingLess: false, { bytes in bytes.bindMemory(to: Type.self).baseAddress!.pointee })
 	}
 	
@@ -229,7 +233,7 @@ How to match the delimiters for the `readData(upToDelimiters:...)` method.
 
 In the description of the different cases, we'll use a common example:
 
-- We'll use a `SimpleInputStream`, which uses a cache to hold some of the data
+- We'll use a `GenericStreamReader`, which uses a cache to hold some of the data
 read from the stream;
 - The delimiters will be (in this order):
    - `"45"`
@@ -243,11 +247,11 @@ public enum DelimiterMatchingMode {
 	
 	/**
 	The lightest match algorithm (usually). In the given example, the third
-	delimiter (`"234"`) will match, because the `SimpleReadStream` will first try
-	to match the delimiters against what it already have in memory.
+	delimiter (`"234"`) will match, because the `StreamReader` will first try to
+	match the delimiters against what it already have in memory.
 	
 	- Note:
-	This is our current implementation of this type of `SimpleReadStream`.
+	This is true for a `GenericStreamReader`, the way it is implemented.
 	However, any delimiter can match, the implementation is really up to the
 	implementer… However, implementers should keep in mind the goal of this
 	matching mode, which is to match and return the data in the quickest way

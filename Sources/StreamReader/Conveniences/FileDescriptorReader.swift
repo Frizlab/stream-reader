@@ -1,6 +1,6 @@
 /*
- * SimpleFileDescriptorStream.swift
- * SimpleStream
+ * FileDescriptorReader.swift
+ * StreamReader
  *
  * Created by François Lamboley on 2021/3/27.
  */
@@ -19,4 +19,4 @@ extension FileDescriptor : GenericReadStream {
 	
 }
 
-public typealias SimpleFileDescriptorStream = SimpleGenericReadStream
+public typealias FileDescriptorReader = GenericStreamReader

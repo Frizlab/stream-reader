@@ -1,6 +1,6 @@
 /*
- * SimpleGenericReadStream.swift
- * SimpleStream
+ * GenericStreamReader.swift
+ * StreamReader
  *
  * Created by François Lamboley on 20/08/2017.
  */
@@ -26,7 +26,7 @@ public protocol GenericReadStream {
 }
 
 
-public final class SimpleGenericReadStream : SimpleReadStream {
+public final class GenericStreamReader : StreamReader {
 	
 	public let sourceStream: GenericReadStream
 	
@@ -40,12 +40,17 @@ public final class SimpleGenericReadStream : SimpleReadStream {
 	public var currentReadPosition = 0
 	public var readSizeLimit: Int?
 	
-	/** Initializes a SimpleInputStream.
+	/**
+	Initializes a `GenericStreamReader`.
 	
 	- Parameter stream: The stream to read data from. Must be opened.
 	- Parameter bufferSize: The size of the buffer to use to read from the
 	stream. Sometimes, more memory might be allocated if needed for some reads.
-	- Parameter streamReadSizeLimit: The maximum number of bytes allowed to be
+	Must be strictly greater than 0.
+	- Parameter bufferSizeIncrement: The number of bytes to increase the buffer
+	by when the current buffer size is not big enough. Must be strictly greater
+	than 0.
+	- Parameter readSizeLimit: The maximum number of bytes allowed to be
 	read from the stream.
 	*/
 	public init(stream: GenericReadStream, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, readSizeLimit limit: Int? = nil) {
@@ -145,7 +150,7 @@ public final class SimpleGenericReadStream : SimpleReadStream {
 			return try handler(UnsafeRawBufferPointer(start: buffer + bufferStartPos, count: match.length), delimiters[match.delimiterIdx])
 		}
 		
-		if delimiters.count > 0 {throw SimpleStreamError.delimitersNotFound}
+		if delimiters.count > 0 {throw StreamReaderError.delimitersNotFound}
 		else {
 			/* We return the whole data. */
 			let returnedLength = bufferValidLength
@@ -226,17 +231,17 @@ public final class SimpleGenericReadStream : SimpleReadStream {
 		}
 	}
 	
-	/** Reads and return the asked size from buffer and completes with the stream
-	if needed. Uses the buffer to read the first bytes and store the bytes read
-	from the stream if applicable. The buffer must be big enough to contain the
-	asked size **from `bufferStartPos`**.
+	/**
+	Reads and return the asked size from buffer and completes with the stream if
+	needed. Uses the buffer to read the first bytes and store the bytes read from
+	the stream if applicable. The buffer must be big enough to contain the asked
+	size **from** `bufferStartPos`.
 	
 	- Parameter dataSize: The size of the data to return.
 	- Parameter allowReadingMore: If `true`, this method may read more data than
 	what is actually needed from the stream.
-	- Throws: `SimpleStreamError` in case of error.
-	- Returns: The read data from the buffer or the stream if necessary.
-	*/
+	- Throws: `StreamReaderError` in case of error.
+	- Returns: The read data from the buffer or the stream if necessary. */
 	private func readDataAssumingBufferIsBigEnough(dataSize size: Int, allowReadingMore: Bool) throws -> UnsafeRawBufferPointer {
 		assert(bufferSize - bufferStartPos >= size)
 		
@@ -245,7 +250,7 @@ public final class SimpleGenericReadStream : SimpleReadStream {
 			/* We must read from the stream. */
 			if let maxTotalReadBytesCount = readSizeLimit, maxTotalReadBytesCount < totalReadBytesCount || size - bufferValidLength /* To read from stream */ > maxTotalReadBytesCount - totalReadBytesCount /* Remaining allowed bytes to be read */ {
 				/* We have to read more bytes from the stream than allowed. We bail. */
-				throw SimpleStreamError.noMoreData(readSizeLimitReached: true)
+				throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)
 			}
 			
 			repeat {
@@ -258,7 +263,7 @@ public final class SimpleGenericReadStream : SimpleReadStream {
 				}
 				assert(sizeToRead > 0)
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
-				guard sizeRead > 0 else {throw SimpleStreamError.noMoreData(readSizeLimitReached: false)}
+				guard sizeRead > 0 else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
 				bufferValidLength += sizeRead
 				totalReadBytesCount += sizeRead
 				assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)

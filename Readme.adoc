@@ -1,39 +1,45 @@
-= SimpleStream
+= Stream Reader
 François Lamboley <fload@me.com>
 
-A simple stream protocol for Swift named `SimpleStream`, with two concrete implementations:
-`SimpleGenericReadStream` and `SimpleDataStream`.
+A simple stream reader protocol for Swift named `StreamReader`, with two
+concrete implementations: `GenericStreamReader` and `DataReader`.
 
-The `SimpleGenericReadStream` can read from any `GenericReadStream`, which the
-`FileHandle` and `IntputStream` classes have been made conform to.
+The `GenericStreamReader` can read from any `GenericReadStream`, which the
+`FileDescriptor` (from https://github.com/apple/swift-system[SystemPackage]),
+`FileHandle` and `IntputStream` classes have been made to conform to.
 
 == Usage Examples
 === Reading a Stream to the End
 [source,swift]
 ----
-let ds = SimpleDataStream(data: d)
-let rd = try ds.readDataToEnd()
-assert(rd == d)
+let data = ...
+let reader = DataReader(data: data)
+let readData = try reader.readDataToEnd()
+assert(readData == data)
 ----
 
 === Reading a Stream Until a Delimitor Is Found
 [source,swift]
 ----
-let s = SimpleInputStream(stream: yourInputStream, bufferSize: 1024, bufferSizeIncrement: 512, streamReadSizeLimit: nil)
+let inputStream = ...
+let reader = InputStreamReader(stream: inputStream, bufferSize: 1024, bufferSizeIncrement: 512)
 /* Read the stream until a newline (whether macOS or Classic MacOS) is found, and returns the data without the newline. */
-let (line, separator) = try s.readData(upTo: [Data("\n".utf8), Data("\r".utf8)], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: false)
-_ = try s.readData(size: separator.count) /* We must read the line separator before next read probably :) */
+let (line, separator) = try reader.readData(upTo: [Data("\n".utf8), Data("\r".utf8)], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: false)
+_ = try reader.readData(size: separator.count) /* We must read the line separator before next read, probably :) */
 ----
 
 Note: In the example above, if the file has Windows new lines, this will add an
 empty new line after each line (the separator for Windows being `\r\n`).
 
-SimpleStream has also a dedicated method to read a line in a stream:
+Stream Reader has also a dedicated method to read a line in a stream:
 [source,swift]
 ----
 /* Does not return the line separator, _but_ set stream position after the line separator. */
-let lineData = try s.readLine(allowUnixNewLines: true, allowLegacyMacOSNewLines: true, allowWindowsNewLines: true).line
+let lineData = try reader.readLine(allowUnixNewLines: true, allowLegacyMacOSNewLines: true, allowWindowsNewLines: true).line
 ----
 
 == TODO
-Make the reads async! This will change a lot of things, but the core of the project should stay the same.
+Make the reads async? This would change a lot of things, but the core of the
+project should stay the same.
+
+Or maybe just be thread-safe, idk.

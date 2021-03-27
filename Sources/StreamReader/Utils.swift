@@ -1,6 +1,6 @@
 /*
  * Utils.swift
- * SimpleStream
+ * StreamReader
  *
  * Created by François Lamboley on 20/08/2017.
  */

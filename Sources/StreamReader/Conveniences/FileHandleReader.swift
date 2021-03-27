@@ -1,6 +1,6 @@
 /*
- * SimpleFileHandleStream.swift
- * SimpleStream
+ * FileHandleReader.swift
+ * StreamReader
  *
  * Created by François Lamboley on 20/08/2017.
  */
@@ -31,4 +31,4 @@ extension FileHandle : GenericReadStream {
 	
 }
 
-public typealias SimpleFileHandleStream = SimpleGenericReadStream
+public typealias FileHandleReader = GenericStreamReader

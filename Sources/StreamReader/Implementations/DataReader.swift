@@ -1,6 +1,6 @@
 /*
- * SimpleDataStream.swift
- * SimpleStream
+ * DataReader.swift
+ * StreamReader
  *
  * Created by François Lamboley on 20/08/2017.
  */
@@ -9,7 +9,7 @@ import Foundation
 
 
 
-public final class SimpleDataStream : SimpleReadStream {
+public final class DataReader : StreamReader {
 	
 	public let sourceData: Data
 	public let sourceDataSize: Int
@@ -25,9 +25,9 @@ public final class SimpleDataStream : SimpleReadStream {
 	
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
 		assert(size >= 0)
-		guard (sourceDataSize - currentReadPosition) >= size else {throw SimpleStreamError.noMoreData(readSizeLimitReached: false)}
+		guard (sourceDataSize - currentReadPosition) >= size else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
 		if let maxRead = readSizeLimit {
-			guard currentReadPosition + size <= maxRead else {throw SimpleStreamError.noMoreData(readSizeLimitReached: true)}
+			guard currentReadPosition + size <= maxRead else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)}
 		}
 		
 		return try sourceData.withUnsafeBytes{ bytes in
@@ -63,7 +63,7 @@ public final class SimpleDataStream : SimpleReadStream {
 			if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
 				return try readData(size: match.length, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}
-			throw SimpleStreamError.delimitersNotFound
+			throw StreamReaderError.delimitersNotFound
 		}
 	}
 	
