@@ -13,7 +13,7 @@ public final class DataReader : StreamReader {
 	
 	public let sourceData: Data
 	public let sourceDataSize: Int
-	public var currentReadPosition = 0
+	public private(set) var currentReadPosition = 0
 	
 	public var readSizeLimit: Int?
 	
@@ -24,15 +24,22 @@ public final class DataReader : StreamReader {
 	}
 	
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
-		assert(size >= 0)
-		guard (sourceDataSize - currentReadPosition) >= size else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
-		if let maxRead = readSizeLimit {
-			guard currentReadPosition + size <= maxRead else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)}
+		assert(size >= 0, "Cannot read a negative number of bytes!")
+		assert(currentReadPosition <= sourceDataSize, "INTERNAL ERROR")
+		
+		if !allowReadingLess {
+			guard (sourceDataSize - currentReadPosition) >= size else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
+			if let maxRead = readSizeLimit {
+				guard currentReadPosition + size <= maxRead else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)}
+			}
 		}
 		
 		return try sourceData.withUnsafeBytes{ bytes in
-			let ret = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: size)
-			currentReadPosition += size
+			let sizeToRead: Int
+			if let maxReadSize = readSizeLimit {sizeToRead = max(0, min(size, min(maxReadSize, sourceDataSize) - currentReadPosition))}
+			else                               {sizeToRead =        min(size, sourceDataSize - currentReadPosition)}
+			let ret = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: sizeToRead)
+			if updateReadPosition {currentReadPosition += sizeToRead}
 			return try handler(ret)
 		}
 	}

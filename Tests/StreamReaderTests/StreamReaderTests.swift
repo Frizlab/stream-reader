@@ -61,7 +61,15 @@ class StreamReaderTests : XCTestCase {
 		let ds = DataReader(data: d, readSizeLimit: 3)
 		XCTAssertThrowsError(try ds.readData(size: 4))
 		let rd = try ds.readData(size: 4, allowReadingLess: true)
-		XCTAssert(rd == d[0..<3])
+		XCTAssertEqual(rd, d[0..<3])
+		
+		ds.readSizeLimit = 2
+		let rd2 = try ds.readData(size: 1, allowReadingLess: true)
+		XCTAssertEqual(rd2, Data())
+		
+		ds.readSizeLimit = 3
+		let rd3 = try ds.readData(size: 0, allowReadingLess: false)
+		XCTAssertEqual(rd3, Data())
 	}
 	
 	func testDataStreamReadToEndVariants() throws {
