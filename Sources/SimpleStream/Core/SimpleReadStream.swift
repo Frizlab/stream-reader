@@ -125,11 +125,11 @@ public extension SimpleReadStream {
 		return try readData(size: size, allowReadingLess: allowReadingLess, updateReadPosition: false, handler)
 	}
 	
-	func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool, includeDelimiter: Bool, _ handler: (_ bytes: UnsafeRawBufferPointer, _ delimiterThatMatched: Data) throws -> T) throws -> T {
+	func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool = true, includeDelimiter: Bool, _ handler: (_ bytes: UnsafeRawBufferPointer, _ delimiterThatMatched: Data) throws -> T) throws -> T {
 		return try readData(upTo: delimiters, matchingMode: matchingMode, failIfNotFound: failIfNotFound, includeDelimiter: includeDelimiter, updateReadPosition: true, handler)
 	}
 	
-	func peekData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool, includeDelimiter: Bool, _ handler: (_ bytes: UnsafeRawBufferPointer, _ delimiterThatMatched: Data) throws -> T) throws -> T {
+	func peekData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool = true, includeDelimiter: Bool, _ handler: (_ bytes: UnsafeRawBufferPointer, _ delimiterThatMatched: Data) throws -> T) throws -> T {
 		return try readData(upTo: delimiters, matchingMode: matchingMode, failIfNotFound: failIfNotFound, includeDelimiter: includeDelimiter, updateReadPosition: false, handler)
 	}
 	
@@ -146,7 +146,7 @@ public extension SimpleReadStream {
 		return try peekData(size: size, allowReadingLess: allowReadingLess, { bytes in Data(bytes) })
 	}
 	
-	func readData(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool, includeDelimiter: Bool) throws -> (data: Data, delimiter: Data) {
+	func readData(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool = true, includeDelimiter: Bool) throws -> (data: Data, delimiter: Data) {
 		return try readData(upTo: delimiters, matchingMode: matchingMode, failIfNotFound: failIfNotFound, includeDelimiter: includeDelimiter, { bytes, delimiterThatMatched in (Data(bytes), delimiterThatMatched) })
 	}
 	
