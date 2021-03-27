@@ -97,10 +97,11 @@ class StreamReaderTests : XCTestCase {
 		
 		let s = InputStream(data: d)
 		s.open(); defer {s.close()}
-		XCTAssertEqual(try InputStreamReader(stream: s, bufferSize: 1, bufferSizeIncrement: 1).peekData(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: true,  includeDelimiter: true).data, d)
-		XCTAssertEqual(try InputStreamReader(stream: s, bufferSize: 1, bufferSizeIncrement: 1).peekData(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
-		XCTAssertEqual(try InputStreamReader(stream: s, bufferSize: 1, bufferSizeIncrement: 1).peekData(upTo: [Data()],                  matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
-		XCTAssertEqual(try InputStreamReader(stream: s, bufferSize: 1, bufferSizeIncrement: 1).peekData(upTo: [nonEmptyDataNotInStream], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
+		let reader = InputStreamReader(stream: s, bufferSize: 1, bufferSizeIncrement: 1)
+		XCTAssertEqual(try reader.peekData(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: true,  includeDelimiter: true).data, d)
+		XCTAssertEqual(try reader.peekData(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
+		XCTAssertEqual(try reader.peekData(upTo: [Data()],                  matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
+		XCTAssertEqual(try reader.peekData(upTo: [nonEmptyDataNotInStream], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
 	}
 	
 	func testStreamPeekWithSize() throws {
