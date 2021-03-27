@@ -1,13 +1,13 @@
 /*
  * SimpleStreamTests.swift
- * BSONSerialization
+ * SimpleStream
  *
  * Created by François Lamboley on 18/12/2016.
  * Copyright © 2016 frizlab. All rights reserved.
  */
 
-import XCTest
 import Foundation
+import XCTest
 @testable import SimpleStream
 
 
@@ -68,6 +68,7 @@ class SimpleStreamTests : XCTestCase {
 		let tmpFileURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent("SimpleStreamTest_\(Int.random(in: 0..<4242))")
 		let d = Data(hexEncoded: "01 23 45 67 89")!
 		try d.write(to: tmpFileURL)
+		defer {_ = try? FileManager.default.removeItem(at: tmpFileURL)}
 		
 		let stream = try SimpleFileHandleStream(stream: FileHandle(forReadingFrom: tmpFileURL), bufferSize: 3, bufferSizeIncrement: 3, streamReadSizeLimit: nil)
 		let rd = try stream.readDataToEnd()
@@ -78,6 +79,7 @@ class SimpleStreamTests : XCTestCase {
 	func testReadErrorFromFileHandle() throws {
 		let tmpFileURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent("SimpleStreamTest_\(Int.random(in: 0..<4242))")
 		XCTAssertTrue(FileManager.default.createFile(atPath: tmpFileURL.path, contents: Data(0..<127), attributes: nil))
+		defer {_ = try? FileManager.default.removeItem(at: tmpFileURL)}
 		
 		let bufferSize = 3
 		let buffer = UnsafeMutableRawPointer.allocate(byteCount: bufferSize, alignment: MemoryLayout<UInt8>.alignment)

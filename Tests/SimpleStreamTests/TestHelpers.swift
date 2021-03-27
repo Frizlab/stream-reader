@@ -1,6 +1,6 @@
 /*
  * TestHelpers.swift
- * BSONSerialization
+ * SimpleStream
  *
  * Created by François Lamboley on 18/12/2016.
  * Copyright © 2016 frizlab. All rights reserved.
@@ -12,15 +12,24 @@ import Foundation
 
 extension Data {
 	
-	/* "FC"   --> Returns data with bytes [0xFC]
-	 * "A"    --> Returns data with bytes [0x0A]
-	 * "FCA"  --> Returns data with bytes [OxFC, 0x0A]
-	 * "FC0A" --> Returns data with bytes [OxFC, 0x0A]
-	 * ""     --> Returns data with bytes []
-	 *
-	 * Spaces are removed from input string ("AB CD 12" == "ABCD12"). */
+	/**
+	Init a Data object from an hex encoded string.
+	
+	Some init examples.
+	```text
+	"FC"   --> Returns data with bytes [0xFC]
+	"A"    --> Returns data with bytes [0x0A]
+	"FCA"  --> Returns data with bytes [OxFC, 0x0A]
+	"FC0A" --> Returns data with bytes [OxFC, 0x0A]
+	""     --> Returns data with bytes []
+	```
+	
+	Any non hex chars (everything but `[0-9a-fA-F]`) is removed from the input:
+	   `Data(hexEncoded: "AB CD-12") == Data(hexEncoded: "ABCD12")`. */
 	init?(hexEncoded str: String) {
-		let str = str.replacingOccurrences(of: " ", with: "")
+		let allowedCharset = CharacterSet(charactersIn: "0123456789abcdefABCDEF")
+		let str = String(str.filter{ $0.unicodeScalars.count == 1 && allowedCharset.contains($0.unicodeScalars.first!) })
+		
 		let size = str.count/2 + (str.count%2 == 0 ? 0 : 1)
 		var bytes = [UInt8](repeating: 0, count: size)
 		for (i, c) in str.enumerated() {
@@ -51,14 +60,7 @@ extension Data {
 	}
 	
 	func hexEncodedString(withSpaces: Bool = true) -> String {
-		var res = ""
-		var first = true
-		for b in self {
-			if !first && withSpaces {res += " "}
-			res += String(format: "%02x", b)
-			first = false
-		}
-		return res.uppercased()
+		return map{ String(format: "%02x", $0).uppercased() }.joined(separator: (withSpaces ? " " : ""))
 	}
 	
 }
