@@ -97,14 +97,13 @@ public final class GenericStreamReader : StreamReader {
 			assert(bufferValidLength - searchOffset >= 0, "INTERNAL LOGIC ERROR")
 			let bufferStart = buffer + bufferStartPos
 			let bufferSearchData = UnsafeRawBufferPointer(start: bufferStart + searchOffset, count: bufferValidLength - searchOffset)
-			if let match = matchDelimiters(inData: bufferSearchData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
-				let returnedLength = searchOffset + match.length
+			if let match = matchDelimiters(inData: bufferSearchData, dataStartOffset: searchOffset, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
 				if updateReadPosition {
-					bufferStartPos += returnedLength
-					bufferValidLength -= returnedLength
-					currentReadPosition += returnedLength
+					bufferStartPos += match.length
+					bufferValidLength -= match.length
+					currentReadPosition += match.length
 				}
-				return try handler(UnsafeRawBufferPointer(start: bufferStart, count: returnedLength), delimiters[match.delimiterIdx])
+				return try handler(UnsafeRawBufferPointer(start: bufferStart, count: match.length), delimiters[match.delimiterIdx])
 			}
 			
 			/* No confirmed match. We have to continue reading the data! */
@@ -131,7 +130,7 @@ public final class GenericStreamReader : StreamReader {
 			throw StreamReaderError.delimitersNotFound
 		}
 		
-		/* No match, we return the whole data. */
+		/* No match, no error on no match, we return the whole data. */
 		let returnedLength = bufferValidLength
 		let bufferStart = buffer + bufferStartPos
 		

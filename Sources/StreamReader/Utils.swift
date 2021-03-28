@@ -18,7 +18,7 @@ internal struct Match {
 
 /* Returns nil if no confirmed matches were found, the length of the matched
  * data otherwise. */
-internal func matchDelimiters(inData data: UnsafeRawBufferPointer, usingMatchingMode matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, minDelimiterLength: Int, withUnmatchedDelimiters unmatchedDelimiters: inout [(offset: Int, element: Data)], matchedDatas: inout [Match]) -> Match? {
+internal func matchDelimiters(inData data: UnsafeRawBufferPointer, dataStartOffset: Int, usingMatchingMode matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, minDelimiterLength: Int, withUnmatchedDelimiters unmatchedDelimiters: inout [(offset: Int, element: Data)], matchedDatas: inout [Match]) -> Match? {
 	/* Reversed enumeration in order to be able to remove an element from the
 	 * unmatchedDelimiters array while still enumerating it and keeping valid
 	 * indexes. Not 100% sure this is valid, but it seems to work… */
@@ -30,7 +30,7 @@ internal func matchDelimiters(inData data: UnsafeRawBufferPointer, usingMatching
 		}
 		if let range = data.firstRange(of: enumeratedDelimiter.element.element) {
 			/* Found one of the delimiter. Let's see what we do with it... */
-			let matchedLength = range.lowerBound + (includeDelimiter ? enumeratedDelimiter.element.element.count : 0)
+			let matchedLength = dataStartOffset + range.lowerBound + (includeDelimiter ? enumeratedDelimiter.element.element.count : 0)
 			let match = Match(length: matchedLength, delimiterIdx: enumeratedDelimiter.element.offset)
 			switch matchingMode {
 			case .anyMatchWins:

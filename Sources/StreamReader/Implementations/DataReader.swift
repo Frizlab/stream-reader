@@ -66,7 +66,7 @@ public final class DataReader : StreamReader {
 		return try sourceData.withUnsafeBytes{ bytes in
 			assert(bytes.baseAddress != nil || currentReadPosition == 0)
 			let searchedData = UnsafeRawBufferPointer(start: bytes.baseAddress.flatMap{ $0 + currentReadPosition }, count: sizeToEnd)
-			if let match = matchDelimiters(inData: searchedData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
+			if let match = matchDelimiters(inData: searchedData, dataStartOffset: 0, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
 				return try readData(size: match.length, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}
 			/* matchDelimiters did not find an indisputable match. However, we have
