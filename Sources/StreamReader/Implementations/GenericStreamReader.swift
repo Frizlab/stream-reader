@@ -287,15 +287,17 @@ public final class GenericStreamReader : StreamReader {
 					if let maxTotalReadBytesCount = readSizeLimit {sizeToRead = min(unmaxedSizeToRead, maxTotalReadBytesCount - totalReadBytesCount /* Number of bytes remaining allowed to be read */)}
 					else                                          {sizeToRead =     unmaxedSizeToRead}
 				}
+				
 				assert(sizeToRead > 0)
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
+				bufferValidLength += sizeRead
+				totalReadBytesCount += sizeRead
+				assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)
+				
 				guard sizeRead > 0 else {
 					if allowReadingLess {break}
 					else                {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
 				}
-				bufferValidLength += sizeRead
-				totalReadBytesCount += sizeRead
-				assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)
 			} while bufferValidLength < size /* Reading until we have enough data in the buffer. */
 		}
 		
