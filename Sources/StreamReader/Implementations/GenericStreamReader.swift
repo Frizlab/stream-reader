@@ -76,7 +76,7 @@ public final class GenericStreamReader : StreamReader {
 	}
 	
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
-		let ret = try readDataNoCurrentPosIncrement(size: size, allowReadingLess: allowReadingLess)
+		let ret = try readDataNoCurrentPosIncrement(size: size, readContraints: allowReadingLess ? .readUntilSizeOrStreamEnd : .getExactSize)
 		if updateReadPosition {
 			currentReadPosition += ret.count
 			bufferValidLength -= ret.count
@@ -95,7 +95,7 @@ public final class GenericStreamReader : StreamReader {
 		var searchOffset = 0
 		repeat {
 			assert(bufferValidLength - searchOffset >= 0, "INTERNAL LOGIC ERROR")
-			var bufferStart = buffer + bufferStartPos
+			let bufferStart = buffer + bufferStartPos
 			let bufferSearchData = UnsafeRawBufferPointer(start: bufferStart + searchOffset, count: bufferValidLength - searchOffset)
 			if let match = matchDelimiters(inData: bufferSearchData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
 				let returnedLength = searchOffset + match.length
@@ -110,44 +110,12 @@ public final class GenericStreamReader : StreamReader {
 			/* No confirmed match. We have to continue reading the data! */
 			searchOffset = max(0, bufferValidLength - maxDelimiterLength + 1)
 			
-			if bufferStartPos + bufferValidLength >= bufferSize {
-				/* The buffer is not big enough to hold new data... Let's move the
-				 * data to the beginning of the buffer or create a new buffer. */
-				if bufferStartPos > 0 {
-					/* We can move the data to the beginning of the buffer. */
-					assert(bufferStart != buffer)
-					buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
-					bufferStart = buffer
-					bufferStartPos = 0
-				} else {
-					/* The buffer is not big enough anymore. We need to create a new,
-					 * bigger one. */
-					assert(bufferStartPos == 0)
-					
-					let oldBuffer = buffer
-					
-					bufferSize += bufferSizeIncrement
-					buffer = UnsafeMutableRawPointer.allocate(byteCount: bufferSize, alignment: MemoryLayout<UInt8>.alignment)
-					buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
-					bufferStart = buffer
-					
-					oldBuffer.deallocate()
-				}
-			}
-			
-			/* Let's read from the stream now! */
-			let sizeToRead: Int
-			let unmaxedSizeToRead = bufferSize - (bufferStartPos + bufferValidLength) /* The remaining space in the buffer */
-			if let maxTotalReadBytesCount = readSizeLimit {sizeToRead = min(unmaxedSizeToRead, max(0, maxTotalReadBytesCount - totalReadBytesCount) /* Number of bytes remaining allowed to be read */)}
-			else                                          {sizeToRead =     unmaxedSizeToRead}
-			
-			assert(sizeToRead >= 0)
-			if sizeToRead == 0 {/* End of the (allowed) data */break}
-			let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
+			let sizeInBufferBeforeRead = bufferValidLength
+			let sizeRemainingInBuffer = bufferSize - (bufferStartPos + bufferValidLength)
+			let sizeToRead = (sizeRemainingInBuffer > 0 ? sizeRemainingInBuffer : bufferSizeIncrement)
+			let sizeRead = try readDataNoCurrentPosIncrement(size: sizeInBufferBeforeRead + sizeToRead, readContraints: .readFromStreamMaxOnce).count - sizeInBufferBeforeRead
 			guard sizeRead > 0 else {/* End of the data */break}
-			bufferValidLength += sizeRead
-			totalReadBytesCount += sizeRead
-			assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)
+			assert(sizeRead >= 0)
 		} while true
 		
 		if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
@@ -194,10 +162,20 @@ public final class GenericStreamReader : StreamReader {
 	/** The total number of bytes read from the source stream. */
 	private var totalReadBytesCount = 0
 	
-	private func readDataNoCurrentPosIncrement(size: Int, allowReadingLess: Bool) throws -> UnsafeRawBufferPointer {
+	private enum ReadContraints {
+		case getExactSize
+		case readUntilSizeOrStreamEnd
+		case readFromStreamMaxOnce
+		
+		var allowReadingLess: Bool {
+			return self != .getExactSize
+		}
+	}
+	
+	private func readDataNoCurrentPosIncrement(size: Int, readContraints: ReadContraints) throws -> UnsafeRawBufferPointer {
 		let allowedToBeRead = readSizeLimit.flatMap{ $0 - currentReadPosition }
 		if let allowedToBeRead = allowedToBeRead, allowedToBeRead <= size {
-			guard allowReadingLess else {
+			guard readContraints.allowReadingLess else {
 				throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)
 			}
 			if allowedToBeRead == 0 {
@@ -207,7 +185,7 @@ public final class GenericStreamReader : StreamReader {
 		
 		/* We constrain the size to the maximum allowed to be read. */
 		let size = allowedToBeRead.flatMap{ min(size, $0) } ?? size
-		return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowed(size: size, allowReadingLess: allowReadingLess)
+		return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowed(size: size, readContraints: readContraints)
 	}
 	
 	/**
@@ -218,18 +196,17 @@ public final class GenericStreamReader : StreamReader {
 	
 	- Parameter size: The size of the data to return. Assumed to be small enough
 	not to break the `readSizeLimit` contract.
-	- Parameter allowReadingLess: If `true`, this method may read less data than
-	asked in the `dataSize` parameter.
+	- Parameter readContraints: Read contraints on the stream.
 	- Throws: `StreamReaderError` in case of error.
 	- Returns: The read data from the buffer or the stream if necessary. */
-	private func readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowed(size: Int, allowReadingLess: Bool) throws -> UnsafeRawBufferPointer {
+	private func readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowed(size: Int, readContraints: ReadContraints) throws -> UnsafeRawBufferPointer {
 		let bufferStart = buffer + bufferStartPos
 		
 		switch size {
 		case let s where s <= bufferSize - bufferStartPos:
 			/* The buffer is big enough to hold the size we want to read, from
 			 * buffer start pos. */
-			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess)
+			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, readContraints: readContraints)
 			
 		case let s where s <= defaultBufferSize:
 			/* The default sized buffer is enough to hold the size we want to read.
@@ -247,7 +224,7 @@ public final class GenericStreamReader : StreamReader {
 				buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
 			}
 			bufferStartPos = 0
-			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess)
+			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, readContraints: readContraints)
 			
 		case let s where s <= bufferSize:
 			/* The current buffer total size is enough to hold the size we want to
@@ -255,7 +232,7 @@ public final class GenericStreamReader : StreamReader {
 			 * start position is 0. */
 			buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
 			bufferStartPos = 0
-			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess)
+			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, readContraints: readContraints)
 			
 		default:
 			/* The buffer is not big enough to hold the data we want to read. We
@@ -268,7 +245,7 @@ public final class GenericStreamReader : StreamReader {
 			bufferStartPos = 0
 			oldBuffer.deallocate()
 			
-			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess)
+			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, readContraints: readContraints)
 		}
 	}
 	
@@ -282,11 +259,10 @@ public final class GenericStreamReader : StreamReader {
 	limit is reached.
 	
 	- Parameter dataSize: The size of the data to return.
-	- Parameter allowReadingLess: If `true`, this method may read less data than
-	asked in the `dataSize` parameter.
+	- Parameter readContraints: Read contraints on the stream.
 	- Throws: `StreamReaderError` in case of error.
 	- Returns: The read data from the buffer or the stream if necessary. */
-	private func readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize size: Int, allowReadingLess: Bool) throws -> UnsafeRawBufferPointer {
+	private func readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize size: Int, readContraints: ReadContraints) throws -> UnsafeRawBufferPointer {
 		assert(bufferSize - bufferStartPos >= size)
 		
 		let bufferStart = buffer + bufferStartPos
@@ -304,14 +280,15 @@ public final class GenericStreamReader : StreamReader {
 				totalReadBytesCount += sizeRead
 				assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)
 				
+				if readContraints == .readFromStreamMaxOnce {break}
 				guard sizeRead > 0 else {
-					if allowReadingLess {break}
-					else                {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
+					if readContraints.allowReadingLess {break}
+					else                               {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
 				}
 			} while bufferValidLength < size /* Reading until we have enough data in the buffer. */
 		}
 		
-		assert(allowReadingLess || bufferValidLength >= size)
+		assert(readContraints.allowReadingLess || bufferValidLength >= size)
 		return UnsafeRawBufferPointer(start: bufferStart, count: min(bufferValidLength, size))
 	}
 	
