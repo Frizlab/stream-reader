@@ -43,6 +43,9 @@ internal func matchDelimiters(inData data: UnsafeRawBufferPointer, dataStartOffs
 				 * necessarily the shortest! So we can return straight away when we
 				 * find a 0-length match. */
 				guard matchedLength > (includeDelimiter ? minDelimiterLength : 0) else {return match}
+				/* TODO: There are cases where we can say with certainty a match is
+				 * the match w/o having to have all the delimiters matched for this
+				 * matching mode. */
 				unmatchedDelimiters.remove(at: enumeratedDelimiter.offset)
 				matchedDatas.append(match)
 				
@@ -52,7 +55,7 @@ internal func matchDelimiters(inData data: UnsafeRawBufferPointer, dataStartOffs
 				
 			case .firstMatchingDelimiterWins:
 				/* We're searching for the first matching delimiter. If the first
-				 * delimiter matches, we can return the matched data straight away! */
+				 * delimiter matches, we can return the matched data straight away. */
 				guard match.delimiterIdx > 0 else {return match}
 				unmatchedDelimiters.remove(at: enumeratedDelimiter.offset)
 				matchedDatas.append(match)
