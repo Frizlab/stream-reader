@@ -150,6 +150,10 @@ public extension StreamReader {
 
 public extension StreamReader {
 	
+	func hasReachedEOF() throws -> Bool {
+		return try peekData(size: 1, allowReadingLess: true).isEmpty
+	}
+	
 	func readData(size: Int, allowReadingLess: Bool = false) throws -> Data {
 		return try readData(size: size, allowReadingLess: allowReadingLess, { bytes in Data(bytes) })
 	}
