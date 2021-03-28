@@ -191,8 +191,11 @@ public extension StreamReader {
 	stream has been reached before a line separator could be found.
 	
 	- Important: The newline is not returned in the line, however the stream
-	position (next read) is set _after_ the line separator. */
-	func readLine(allowUnixNewLines: Bool = true, allowLegacyMacOSNewLines: Bool = false, allowWindowsNewLines: Bool = false) throws -> (line: Data, newLineChars: Data) {
+	position (next read) is set _after_ the line separator.
+	
+	- Returns: The line and line separator, or `nil` if the end of the stream was
+	reached. */
+	func readLine(allowUnixNewLines: Bool = true, allowLegacyMacOSNewLines: Bool = false, allowWindowsNewLines: Bool = false) throws -> (line: Data, newLineChars: Data)? {
 		/* Unix:    lf
 		 * MacOS:   cr
 		 * Windows: cr + lf*/
@@ -202,6 +205,7 @@ public extension StreamReader {
 		let separators = (allowUnixNewLines ? [lf] : []) + (allowLegacyMacOSNewLines ? [cr] : []) + (!allowLegacyMacOSNewLines && allowWindowsNewLines ? [cr + lf] : [])
 		let (line, separator) = try readData(upTo: separators, matchingMode: .shortestDataWins, failIfNotFound: false, includeDelimiter: false)
 		_ = try readData(size: separator.count, allowReadingLess: false) /* We must read the line separator! */
+		guard !line.isEmpty || !separator.isEmpty else {return nil}
 		
 		if !allowWindowsNewLines || !allowLegacyMacOSNewLines || separator == lf || separator.isEmpty {
 			/* If Windows new lines are not allowed, or the separator that matched
