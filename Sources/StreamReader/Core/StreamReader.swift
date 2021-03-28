@@ -21,17 +21,29 @@ public protocol StreamReader : class {
 	var currentReadPosition: Int {get}
 	
 	/**
-	The maximum total number of bytes allowed to be read from the underlying
-	stream. When the limit is reached, the stream must throw the
-	`.streamReadSizeLimitReached` error if read from.
+	The maximum total number of bytes allowed to be read _from the underlying
+	stream_, and the maximum value possible for `currentReadPosition`.
 	
-	If set to nil, there are no limits.
+	If set to `nil`, there are no limits.
 	
-	Can be changed after having read from the stream. If set to a value lower
-	than or equal to the current total number of bytes read, no more bytes will
-	be read from the stream, and the `.streamReadSizeLimitReached` error will be
-	thrown when trying to read more data (if the current internal buffer end is
-	reached). */
+	You get the following guarantees:
+	- No more than `readSizeLimit` bytes will be read by the reader from the
+	underlying stream;
+	- No read from the reader will set the `currentReadPosition` to be greater
+	than `readSizeLimit`.
+	
+	It is however possible to change `readSizeLimit` at any time, which makes it
+	possible for more than `readSizeLimit` to _have been read_ from the stream,
+	or for `currentReadPosition` to be greater than `readSizeLimit`.
+	
+	If this `currentReadPosition` is greater than `readSizeLimit`, the
+	`.notEnoughData` error would be thrown if trying to read more data.
+	
+	This property can be useful because it is usually not possible to add data
+	back to a stream once it has been read from. If you know your stream can have
+	more data that what you’re interested in and want to avoid the reader reading
+	too much and thus rendering the stream unusable for other clients, you should
+	use this property. */
 	var readSizeLimit: Int? {get set}
 	
 	/**
