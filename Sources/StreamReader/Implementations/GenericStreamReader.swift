@@ -159,20 +159,21 @@ public final class GenericStreamReader : StreamReader {
 			return try handler(UnsafeRawBufferPointer(start: buffer + bufferStartPos, count: match.length), delimiters[match.delimiterIdx])
 		}
 		
-		if delimiters.count > 0 {throw StreamReaderError.delimitersNotFound}
-		else {
-			/* We return the whole data. */
-			let returnedLength = bufferValidLength
-			let bufferStart = buffer + bufferStartPos
-			
-			if updateReadPosition {
-				currentReadPosition += bufferValidLength
-				bufferStartPos += bufferValidLength
-				bufferValidLength = 0
-			}
-			
-			return try handler(UnsafeRawBufferPointer(start: bufferStart, count: returnedLength), Data())
+		guard delimiters.isEmpty || !failIfNotFound else {
+			throw StreamReaderError.delimitersNotFound
 		}
+		
+		/* No match, we return the whole data. */
+		let returnedLength = bufferValidLength
+		let bufferStart = buffer + bufferStartPos
+		
+		if updateReadPosition {
+			currentReadPosition += bufferValidLength
+			bufferStartPos += bufferValidLength
+			bufferValidLength = 0
+		}
+		
+		return try handler(UnsafeRawBufferPointer(start: bufferStart, count: returnedLength), Data())
 	}
 	
 	/* ***************
@@ -180,8 +181,8 @@ public final class GenericStreamReader : StreamReader {
 	   *************** */
 	
 	/* Note: We choose not to use UnsafeMutableRawBufferPointer as we’ll do many
-	 *       pointer arithmetic, it wouldn’t be very practical, mostly because
-	 *       UnsafeMutableRawBufferPointer’s baseAdress is optional. */
+	 *       pointer arithmetic, it wouldn’t be very practical (mostly because
+	 *       UnsafeMutableRawBufferPointer’s baseAdress is optional). */
 	
 	/** The current buffer in use. Its size should be `defaultBufferSize` most of
 	the time. */
@@ -193,25 +194,42 @@ public final class GenericStreamReader : StreamReader {
 	/** The total number of bytes read from the source stream. */
 	private var totalReadBytesCount = 0
 	
+	private func readDataNoCurrentPosIncrement(size: Int, allowReadingLess: Bool) throws -> UnsafeRawBufferPointer {
+		let allowedToBeRead = readSizeLimit.flatMap{ $0 - currentReadPosition }
+		if let allowedToBeRead = allowedToBeRead, allowedToBeRead <= size {
+			guard allowReadingLess else {
+				throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)
+			}
+			if allowedToBeRead == 0 {
+				return UnsafeRawBufferPointer(start: nil, count: 0)
+			}
+		}
+		
+		/* We constrain the size to the maximum allowed to be read. */
+		let size = allowedToBeRead.flatMap{ min(size, $0) } ?? size
+		return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowed(size: size, allowReadingLess: allowReadingLess)
+	}
+	
 	/**
 	Reads and returns the asked size from buffer and completes with the stream if
 	needed. Uses the buffer to read the first bytes and store the bytes read from
 	the stream if applicable. If the buffer is not big enough, it will be resized
 	to be able to hold the required size.
 	
-	- Parameter size: The size of the data to return.
+	- Parameter size: The size of the data to return. Assumed to be small enough
+	not to break the `readSizeLimit` contract.
 	- Parameter allowReadingLess: If `true`, this method may read less data than
 	asked in the `dataSize` parameter.
 	- Throws: `StreamReaderError` in case of error.
 	- Returns: The read data from the buffer or the stream if necessary. */
-	private func readDataNoCurrentPosIncrement(size: Int, allowReadingLess: Bool) throws -> UnsafeRawBufferPointer {
+	private func readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowed(size: Int, allowReadingLess: Bool) throws -> UnsafeRawBufferPointer {
 		let bufferStart = buffer + bufferStartPos
 		
 		switch size {
 		case let s where s <= bufferSize - bufferStartPos:
 			/* The buffer is big enough to hold the size we want to read, from
 			 * buffer start pos. */
-			return try readDataNoCurrentPosIncrementAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
+			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess)
 			
 		case let s where s <= defaultBufferSize:
 			/* The default sized buffer is enough to hold the size we want to read.
@@ -229,7 +247,7 @@ public final class GenericStreamReader : StreamReader {
 				buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
 			}
 			bufferStartPos = 0
-			return try readDataNoCurrentPosIncrementAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
+			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess)
 			
 		case let s where s <= bufferSize:
 			/* The current buffer total size is enough to hold the size we want to
@@ -237,7 +255,7 @@ public final class GenericStreamReader : StreamReader {
 			 * start position is 0. */
 			buffer.copyMemory(from: bufferStart, byteCount: bufferValidLength)
 			bufferStartPos = 0
-			return try readDataNoCurrentPosIncrementAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: true)
+			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess)
 			
 		default:
 			/* The buffer is not big enough to hold the data we want to read. We
@@ -250,7 +268,7 @@ public final class GenericStreamReader : StreamReader {
 			bufferStartPos = 0
 			oldBuffer.deallocate()
 			
-			return try readDataNoCurrentPosIncrementAssumingBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess, allowReadingMore: false /* Not actually needed as the buffer size is exactly of the required size… */)
+			return try readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize: size, allowReadingLess: allowReadingLess)
 		}
 	}
 	
@@ -260,35 +278,27 @@ public final class GenericStreamReader : StreamReader {
 	the stream if applicable. The buffer must be big enough to contain the asked
 	size **from** `bufferStartPos`.
 	
+	Will throw if allow reading less is false and end of stream or stream read
+	limit is reached.
+	
 	- Parameter dataSize: The size of the data to return.
 	- Parameter allowReadingLess: If `true`, this method may read less data than
 	asked in the `dataSize` parameter.
-	- Parameter allowReadingMore: If `true`, this method may read more data than
-	what is actually needed from the stream if the `readSizeLimit` or the stream
-	end is reached.
 	- Throws: `StreamReaderError` in case of error.
 	- Returns: The read data from the buffer or the stream if necessary. */
-	private func readDataNoCurrentPosIncrementAssumingBufferIsBigEnough(dataSize size: Int, allowReadingLess: Bool, allowReadingMore: Bool) throws -> UnsafeRawBufferPointer {
+	private func readDataNoCurrentPosIncrementAssumingSizeIsConstrainedToAllowedAndBufferIsBigEnough(dataSize size: Int, allowReadingLess: Bool) throws -> UnsafeRawBufferPointer {
 		assert(bufferSize - bufferStartPos >= size)
 		
 		let bufferStart = buffer + bufferStartPos
 		if bufferValidLength < size {
-			/* We must read from the stream. */
-			if let maxTotalReadBytesCount = readSizeLimit, maxTotalReadBytesCount < totalReadBytesCount || size - bufferValidLength /* To read from stream */ > maxTotalReadBytesCount - totalReadBytesCount /* Remaining allowed bytes to be read */ {
-				/* We have to read more bytes from the stream than allowed. We bail. */
-				throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)
-			}
-			
+			/* The buffer does not contain enough: we read from the stream.
+			 * As per the specs of the function, we know there is enough space in
+			 * the buffer to hold the required size, and reading the given size
+			 * won’t break the readSizeLimit contract. */
 			repeat {
-				let sizeToRead: Int
-				if !allowReadingMore {sizeToRead = size - bufferValidLength /* Checked to fit in the remaining bytes allowed to be read in "if" before this loop */}
-				else {
-					let unmaxedSizeToRead = bufferSize - (bufferStartPos + bufferValidLength) /* The remaining space in the buffer */
-					if let maxTotalReadBytesCount = readSizeLimit {sizeToRead = min(unmaxedSizeToRead, maxTotalReadBytesCount - totalReadBytesCount /* Number of bytes remaining allowed to be read */)}
-					else                                          {sizeToRead =     unmaxedSizeToRead}
-				}
-				
-				assert(sizeToRead > 0)
+				let sizeToRead = size - bufferValidLength
+				assert(sizeToRead > 0, "INTERNAL LOGIC ERROR")
+				assert(sizeToRead <= bufferSize - (bufferStartPos + bufferValidLength), "INTERNAL LOGIC ERROR")
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
 				bufferValidLength += sizeRead
 				totalReadBytesCount += sizeRead

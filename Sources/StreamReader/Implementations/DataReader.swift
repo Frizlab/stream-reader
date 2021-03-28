@@ -28,15 +28,21 @@ public final class DataReader : StreamReader {
 		assert(currentReadPosition <= sourceDataSize, "INTERNAL ERROR")
 		
 		if !allowReadingLess {
-			guard (sourceDataSize - currentReadPosition) >= size else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
 			if let maxRead = readSizeLimit {
 				guard currentReadPosition + size <= maxRead else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)}
 			}
+			guard (sourceDataSize - currentReadPosition) >= size else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
 		}
 		
 		return try sourceData.withUnsafeBytes{ bytes in
 			let sizeToRead = sizeConstrainedToRemainingAllowedSizeToRead(size)
-			let ret = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: sizeToRead)
+			/* Only possibility for bytes.baseAddress to be nil is if data is empty
+			 * which makes currentReadPosition and size to read being different
+			 * than 0 theoratically impossible.
+			 * This assert validates the flatMap we have in the raw buffer pointer
+			 * creation on next line. */
+			assert(bytes.baseAddress != nil || (currentReadPosition == 0 && sizeToRead == 0), "INTERNAL LOGIC ERROR")
+			let ret = UnsafeRawBufferPointer(start: bytes.baseAddress.flatMap{ $0 + currentReadPosition }, count: sizeToRead)
 			if updateReadPosition {currentReadPosition += sizeToRead}
 			return try handler(ret)
 		}
@@ -58,7 +64,8 @@ public final class DataReader : StreamReader {
 		var matchedDatas = [Match]()
 		
 		return try sourceData.withUnsafeBytes{ bytes in
-			let searchedData = UnsafeRawBufferPointer(start: bytes.baseAddress! + currentReadPosition, count: sizeToEnd)
+			assert(bytes.baseAddress != nil || currentReadPosition == 0)
+			let searchedData = UnsafeRawBufferPointer(start: bytes.baseAddress.flatMap{ $0 + currentReadPosition }, count: sizeToEnd)
 			if let match = matchDelimiters(inData: searchedData, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
 				return try readData(size: match.length, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}
