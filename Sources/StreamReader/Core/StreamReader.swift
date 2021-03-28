@@ -203,10 +203,11 @@ public extension StreamReader {
 		let (line, separator) = try readData(upTo: separators, matchingMode: .shortestDataWins, failIfNotFound: false, includeDelimiter: false)
 		_ = try readData(size: separator.count, allowReadingLess: false) /* We must read the line separator! */
 		
-		if !allowWindowsNewLines || !allowLegacyMacOSNewLines || separator == lf {
+		if !allowWindowsNewLines || !allowLegacyMacOSNewLines || separator == lf || separator.isEmpty {
 			/* If Windows new lines are not allowed, or the separator that matched
-			 * was lf, or if legacy MacOS new lines are not allowed, we can
-			 * directly return the data we found as there is no ambiguity possible. */
+			 * was lf or empty (end of stream), or if legacy MacOS new lines are
+			 * not allowed, we can directly return the data we found as there is no
+			 * ambiguity possible. */
 			return (line: line, newLineChars: separator)
 		} else {
 			/* Windows and legacy MacOS new lines are allowed, and the separator

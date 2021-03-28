@@ -26,6 +26,22 @@ class StreamReaderTests : XCTestCase {
 		super.tearDown()
 	}
 	
+	private func checkReadLine(reader r: StreamReader, expectedLine: String, expectedSeparator: String) throws {
+		let ret = try r.readLine(allowUnixNewLines: true, allowLegacyMacOSNewLines: true, allowWindowsNewLines: true)
+		XCTAssertEqual(ret.line, Data(expectedLine.utf8))
+		XCTAssertEqual(ret.newLineChars, Data(expectedSeparator.utf8))
+	}
+	
+	func testDataStreamReadLine() throws {
+		let r = DataReader(data: Data("Hello World,\r\nHow are you\ntoday?\rHope you’re\n\rokay!".utf8))
+		try checkReadLine(reader: r, expectedLine: "Hello World,", expectedSeparator: "\r\n")
+		try checkReadLine(reader: r, expectedLine: "How are you", expectedSeparator: "\n")
+		try checkReadLine(reader: r, expectedLine: "today?", expectedSeparator: "\r")
+		try checkReadLine(reader: r, expectedLine: "Hope you’re", expectedSeparator: "\n")
+		try checkReadLine(reader: r, expectedLine: "", expectedSeparator: "\r")
+		try checkReadLine(reader: r, expectedLine: "okay!", expectedSeparator: "")
+	}
+	
 	func testDataStreamBasicUpToDelimiterRead() throws {
 		let delim = Data(hexEncoded: "45")!
 		let d = Data(hexEncoded: "01 23 45 67 89")!

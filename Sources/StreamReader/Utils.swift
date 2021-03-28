@@ -22,7 +22,7 @@ internal func matchDelimiters(inData data: UnsafeRawBufferPointer, usingMatching
 	/* Reversed enumeration in order to be able to remove an element from the
 	 * unmatchedDelimiters array while still enumerating it and keeping valid
 	 * indexes. Not 100% sure this is valid, but it seems to work… */
-	for enumeratedDelimiter in unmatchedDelimiters.reversed().enumerated() {
+	for enumeratedDelimiter in unmatchedDelimiters.enumerated().reversed() {
 		if let range = data.firstRange(of: enumeratedDelimiter.element.element) {
 			/* Found one of the delimiter. Let's see what we do with it... */
 			let matchedLength = range.lowerBound + (includeDelimiter ? enumeratedDelimiter.element.element.count : 0)
