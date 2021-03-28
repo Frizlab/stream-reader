@@ -28,7 +28,8 @@ internal func matchDelimiters(inData data: UnsafeRawBufferPointer, dataStartOffs
 		guard !enumeratedDelimiter.element.element.isEmpty else {
 			continue
 		}
-		if let range = data.firstRange(of: enumeratedDelimiter.element.element) {
+		/* When Linux is not drunk anymore, we will be using data.firstRange(of: enumeratedDelimiter.element.element) */
+		if let range = awesomeFirstRange(data, enumeratedDelimiter.element.element) {
 			/* Found one of the delimiter. Let's see what we do with it... */
 			let matchedLength = dataStartOffset + range.lowerBound + (includeDelimiter ? enumeratedDelimiter.element.element.count : 0)
 			let match = Match(length: matchedLength, delimiterIdx: enumeratedDelimiter.element.offset)
@@ -80,4 +81,24 @@ internal func findBestMatch(fromMatchedDatas matchedDatas: [Match], usingMatchin
 	case .longestDataWins:  return matchedDatas.reduce(firstMatchedData, { $0.length > $1.length ? $0 : $1 })
 	case .firstMatchingDelimiterWins: return matchedDatas.reduce(firstMatchedData, { $0.delimiterIdx < $1.delimiterIdx ? $0 : $1 })
 	}
+}
+
+/* swift-corelibs-foundation is drunk, so we use our own first range, w/ black
+ * jacks and hookers! */
+internal func awesomeFirstRange(_ haystack: UnsafeRawBufferPointer, _ needle: Data) -> Range<Data.Index>? {
+	#if !os(macOS) && !os(tvOS) && !os(iOS) && !os(watchOS)
+	guard !needle.isEmpty else {return nil}
+	guard !haystack.isEmpty else {return nil}
+	guard needle.count <= haystack.count else {return nil}
+	let start = haystack.baseAddress!
+	let end = haystack.baseAddress!.advanced(by: haystack.count - needle.count)
+	for (idx, curPos) in (start...end).enumerated() {
+		if Data(UnsafeRawBufferPointer(start: curPos, count: needle.count)) == needle {
+			return idx..<(idx + needle.count)
+		}
+	}
+	return nil
+	#else
+	return haystack.firstRange(of: needle)
+	#endif
 }
