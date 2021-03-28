@@ -174,7 +174,7 @@ public final class GenericStreamReader : StreamReader {
 	
 	private func readDataNoCurrentPosIncrement(size: Int, readContraints: ReadContraints) throws -> UnsafeRawBufferPointer {
 		let allowedToBeRead = readSizeLimit.flatMap{ $0 - currentReadPosition }
-		if let allowedToBeRead = allowedToBeRead, allowedToBeRead <= size {
+		if let allowedToBeRead = allowedToBeRead, allowedToBeRead < size {
 			guard readContraints.allowReadingLess else {
 				throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)
 			}
