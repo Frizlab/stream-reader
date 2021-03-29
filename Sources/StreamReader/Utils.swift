@@ -23,11 +23,6 @@ internal func matchDelimiters(inData data: UnsafeRawBufferPointer, dataStartOffs
 	 * unmatchedDelimiters array while still enumerating it and keeping valid
 	 * indexes. Not 100% sure this is valid, but it seems to work… */
 	for enumeratedDelimiter in unmatchedDelimiters.enumerated().reversed() {
-		/* This check is because Linux’s firstRange implementation does not return
-		 * nil when searched data is empty. */
-		guard !enumeratedDelimiter.element.element.isEmpty else {
-			continue
-		}
 		/* When Linux is not drunk anymore, we will be using data.firstRange(of: enumeratedDelimiter.element.element) */
 		if let range = awesomeFirstRange(data, enumeratedDelimiter.element.element) {
 			/* Found one of the delimiter. Let's see what we do with it... */
