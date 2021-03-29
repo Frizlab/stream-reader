@@ -38,24 +38,41 @@ public final class GenericStreamReader : StreamReader {
 	public var bufferSizeIncrement: Int
 	
 	public private(set) var currentReadPosition = 0
+	
 	public var readSizeLimit: Int?
+	/**
+	The max size to read from the stream with a single read. Set to `nil` for no
+	max.
+	
+	Changing this can be useful for instance for a FileHandle stream because
+	FileHandle will read _exactly_ the size it is asked to, blocking until the
+	number of bytes required are retrieved or the end of the file is reached.
+	
+	By default this stream reader reads the maximum size it can in its internal
+	buffer, so reading from stdin via a FileHandle will block until the buffer is
+	full, unless this property is set to a low value (`1` for instance). */
+	public var underlyingStreamReadSizeLimit: Int?
 	
 	/**
 	Initializes a `GenericStreamReader`.
 	
-	- Parameter stream: The stream to read data from. Must be opened.
+	- Parameter stream: The stream to read data from.
 	- Parameter bufferSize: The size of the buffer to use to read from the
 	stream. Sometimes, more memory might be allocated if needed for some reads.
 	Must be strictly greater than 0.
 	- Parameter bufferSizeIncrement: The number of bytes to increase the buffer
 	by when the current buffer size is not big enough. Must be strictly greater
 	than 0.
-	- Parameter readSizeLimit: The maximum number of bytes allowed to be
-	read from the stream.
-	*/
-	public init(stream: GenericReadStream, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, readSizeLimit limit: Int? = nil) {
+	- Parameter readSizeLimit: The maximum number of bytes allowed to be read
+	from the stream. Cannot be negative or 0.
+	- Parameter underlyingStreamReadSizeLimit: The max size to read from the
+	stream with a single read. Cannot be negative or 0. */
+	public init(stream: GenericReadStream, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, readSizeLimit limit: Int? = nil, underlyingStreamReadSizeLimit streamReadSizeLimit: Int? = nil) {
 		assert(size > 0)
-		
+		assert(sizeIncrement > 0)
+		assert(limit == nil || limit! > 0)
+		assert(streamReadSizeLimit == nil || streamReadSizeLimit! > 0)
+
 		sourceStream = stream
 		
 		defaultBufferSize = size
@@ -67,7 +84,9 @@ public final class GenericStreamReader : StreamReader {
 		bufferValidLength = 0
 		
 		totalReadBytesCount = 0
+		
 		readSizeLimit = limit
+		underlyingStreamReadSizeLimit = streamReadSizeLimit
 	}
 	
 	deinit {
@@ -271,7 +290,9 @@ public final class GenericStreamReader : StreamReader {
 			 * the buffer to hold the required size, and reading the given size
 			 * won’t break the readSizeLimit contract. */
 			repeat {
-				let sizeToRead = size - bufferValidLength
+				let sizeToRead: Int
+				if let readLimit = underlyingStreamReadSizeLimit {sizeToRead = min(readLimit, size - bufferValidLength)}
+				else                                             {sizeToRead =                size - bufferValidLength}
 				assert(sizeToRead > 0, "INTERNAL LOGIC ERROR")
 				assert(sizeToRead <= bufferSize - (bufferStartPos + bufferValidLength), "INTERNAL LOGIC ERROR")
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
