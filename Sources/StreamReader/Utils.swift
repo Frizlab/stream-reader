@@ -83,8 +83,8 @@ internal func findBestMatch(fromMatchedDatas matchedDatas: [Match], usingMatchin
 	}
 }
 
-/* swift-corelibs-foundation is drunk, so we use our own first range, w/ black
- * jacks and hookers! */
+/* swift-corelibs-foundation is drunk, so we use our own first range, with
+ * blackjacks and hookers! */
 internal func awesomeFirstRange(_ haystack: UnsafeRawBufferPointer, _ needle: Data) -> Range<Data.Index>? {
 	#if !os(macOS) && !os(tvOS) && !os(iOS) && !os(watchOS)
 	guard !needle.isEmpty else {return nil}
