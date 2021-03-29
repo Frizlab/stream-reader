@@ -29,19 +29,6 @@ class StreamReaderTests : XCTestCase {
 		super.tearDown()
 	}
 	
-	func testReadLine() throws {
-		try runTest(string: "Hello World,\r\nHow are you\ntoday?\rHope you’re\n\rokay!", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
-			try checkReadLine(reader: reader, expectedLine: "Hello World,", expectedSeparator: "\r\n")
-			try checkReadLine(reader: reader, expectedLine: "How are you", expectedSeparator: "\n")
-			try checkReadLine(reader: reader, expectedLine: "today?", expectedSeparator: "\r")
-			try checkReadLine(reader: reader, expectedLine: "Hope you’re", expectedSeparator: "\n")
-			try checkReadLine(reader: reader, expectedLine: "", expectedSeparator: "\r")
-			try checkReadLine(reader: reader, expectedLine: "okay!", expectedSeparator: "")
-			XCTAssertNil(try reader.readLine(allowUnixNewLines: true, allowLegacyMacOSNewLines: true, allowWindowsNewLines: true))
-			XCTAssertTrue(try reader.hasReachedEOF())
-		}
-	}
-	
 	func testBasicUpToDelimiterRead() throws {
 		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
 			let delim = Data(hexEncoded: "45")!
@@ -200,6 +187,40 @@ class StreamReaderTests : XCTestCase {
 			let d = try reader.readData(upTo: [Data(hexEncoded: "89 98")!, Data(hexEncoded: "98")!, Data(hexEncoded: "76")!], matchingMode: .firstMatchingDelimiterWins, includeDelimiter: false).data
 			XCTAssertEqual(d, data[0..<4])
 			XCTAssertFalse(try reader.hasReachedEOF())
+		}
+	}
+	
+	func testReadLine() throws {
+		try runTest(string: "Hello World,\r\nHow are you\ntoday?\rHope you’re\n\rokay!", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			try checkReadLine(reader: reader, expectedLine: "Hello World,", expectedSeparator: "\r\n")
+			try checkReadLine(reader: reader, expectedLine: "How are you", expectedSeparator: "\n")
+			try checkReadLine(reader: reader, expectedLine: "today?", expectedSeparator: "\r")
+			try checkReadLine(reader: reader, expectedLine: "Hope you’re", expectedSeparator: "\n")
+			try checkReadLine(reader: reader, expectedLine: "", expectedSeparator: "\r")
+			try checkReadLine(reader: reader, expectedLine: "okay!", expectedSeparator: "")
+			XCTAssertNil(try reader.readLine(allowUnixNewLines: true, allowLegacyMacOSNewLines: true, allowWindowsNewLines: true))
+			XCTAssertTrue(try reader.hasReachedEOF())
+		}
+	}
+	
+	func testReadLine2() throws {
+		struct DataToStrError : Error {}
+		let str = """
+		aa
+		77y
+		d
+		d
+		"""
+		try runTest(string: str, bufferSizes: Array(1...4), bufferSizeIncrements: Array(1...5), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			var lines = [String]()
+			while let (line, _) = try reader.readLine() {
+				guard let lineStr = String(data: line, encoding: .utf8) else {
+					throw DataToStrError()
+				}
+				lines.append(lineStr)
+			}
+			XCTAssertTrue(try reader.hasReachedEOF())
+			XCTAssertEqual(lines, ["aa", "77y", "d", "d"])
 		}
 	}
 	
