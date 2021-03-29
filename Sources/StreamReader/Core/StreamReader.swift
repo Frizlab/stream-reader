@@ -150,6 +150,12 @@ public extension StreamReader {
 
 public extension StreamReader {
 	
+	/**
+	Has EOF been reached?
+	
+	- Important: If the read size limit has not been reached, one byte might be
+	read from the underlying stream when using this method though the
+	`currentReadPosition` of the stream reader will never change. */
 	func hasReachedEOF() throws -> Bool {
 		return try peekData(size: 1, allowReadingLess: true).isEmpty
 	}
