@@ -8,6 +8,9 @@
 
 import Foundation
 import XCTest
+
+import SystemPackage
+
 @testable import StreamReader
 
 
@@ -26,347 +29,178 @@ class StreamReaderTests : XCTestCase {
 		super.tearDown()
 	}
 	
-	func testDataStreamReadLine() throws {
-		let r = DataReader(data: Data("Hello World,\r\nHow are you\ntoday?\rHope you’re\n\rokay!".utf8))
-		try checkReadLine(reader: r, expectedLine: "Hello World,", expectedSeparator: "\r\n")
-		try checkReadLine(reader: r, expectedLine: "How are you", expectedSeparator: "\n")
-		try checkReadLine(reader: r, expectedLine: "today?", expectedSeparator: "\r")
-		try checkReadLine(reader: r, expectedLine: "Hope you’re", expectedSeparator: "\n")
-		try checkReadLine(reader: r, expectedLine: "", expectedSeparator: "\r")
-		try checkReadLine(reader: r, expectedLine: "okay!", expectedSeparator: "")
-		XCTAssertNil(try r.readLine(allowUnixNewLines: true, allowLegacyMacOSNewLines: true, allowWindowsNewLines: true))
-		XCTAssertTrue(try r.hasReachedEOF())
+	func testReadLine() throws {
+		try runTest(string: "Hello World,\r\nHow are you\ntoday?\rHope you’re\n\rokay!", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			try checkReadLine(reader: reader, expectedLine: "Hello World,", expectedSeparator: "\r\n")
+			try checkReadLine(reader: reader, expectedLine: "How are you", expectedSeparator: "\n")
+			try checkReadLine(reader: reader, expectedLine: "today?", expectedSeparator: "\r")
+			try checkReadLine(reader: reader, expectedLine: "Hope you’re", expectedSeparator: "\n")
+			try checkReadLine(reader: reader, expectedLine: "", expectedSeparator: "\r")
+			try checkReadLine(reader: reader, expectedLine: "okay!", expectedSeparator: "")
+			XCTAssertNil(try reader.readLine(allowUnixNewLines: true, allowLegacyMacOSNewLines: true, allowWindowsNewLines: true))
+			XCTAssertTrue(try reader.hasReachedEOF())
+		}
 	}
 	
-	func testDataStreamBasicUpToDelimiterRead() throws {
-		let delim = Data(hexEncoded: "45")!
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		
-		let ds = DataReader(data: d)
-		let rd = try ds.readData(upTo: [delim], matchingMode: .anyMatchWins, includeDelimiter: false).data
-		XCTAssertEqual(rd, Data(hexEncoded: "01 23")!)
-		
-		let nx = try ds.readData(size: 1)
-		XCTAssertEqual(nx, Data(hexEncoded: "45")!)
-		
-		XCTAssertFalse(try ds.hasReachedEOF())
+	func testBasicUpToDelimiterRead() throws {
+		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			let delim = Data(hexEncoded: "45")!
+			
+			let val = try reader.readData(upTo: [delim], matchingMode: .anyMatchWins, includeDelimiter: false)
+			XCTAssertEqual(val.data, Data(hexEncoded: "01 23")!)
+			XCTAssertEqual(val.delimiter, Data(hexEncoded: "45")!)
+			XCTAssertEqual(try reader.readData(size: 1), Data(hexEncoded: "45")!)
+			
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
 	}
 	
-	func testDataStreamReadToEnd() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		
-		let ds = DataReader(data: d)
-		let rd = try ds.readDataToEnd()
-		XCTAssertEqual(rd, d)
-		
-		XCTAssertTrue(try ds.hasReachedEOF())
+	func testReadToEnd() throws {
+		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertEqual(try reader.readDataToEnd(), data)
+			XCTAssertTrue(try reader.hasReachedEOF())
+		}
 	}
 	
-	func testDataStreamReadToEndWithLimit() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		
-		let ds = DataReader(data: d, readSizeLimit: 3)
-		let rd = try ds.readDataToEnd()
-		XCTAssertEqual(rd, d[0..<3])
-		
-		XCTAssertTrue(try ds.hasReachedEOF())
-	}
-	
-	func testDataStreamReadBiggerThanStream() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		
-		let ds = DataReader(data: d)
-		XCTAssertThrowsError(try ds.readData(size: 6))
-		let rd = try ds.readData(size: 6, allowReadingLess: true)
-		XCTAssertEqual(rd, d)
-		
-		XCTAssertTrue(try ds.hasReachedEOF())
-	}
-	
-	func testDataStreamReadBiggerThanLimit() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		
-		let ds = DataReader(data: d, readSizeLimit: 3)
-		XCTAssertThrowsError(try ds.readData(size: 4))
-		let rd = try ds.readData(size: 4, allowReadingLess: true)
-		XCTAssertEqual(rd, d[0..<3])
-		
-		ds.readSizeLimit = 2
-		let rd2 = try ds.readData(size: 1, allowReadingLess: true)
-		XCTAssertEqual(rd2, Data())
-		
-		ds.readSizeLimit = 3
-		let rd3 = try ds.readData(size: 0, allowReadingLess: false)
-		XCTAssertEqual(rd3, Data())
-		
-		ds.readSizeLimit = 2
-		XCTAssertThrowsError(try ds.readData(size: 0, allowReadingLess: false))
-		
-		XCTAssertTrue(try ds.hasReachedEOF())
-	}
-	
-	func testDataStreamReadToEndVariants() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		let nonEmptyDataNotInStream = Data(hexEncoded: "02")!
-		
-		XCTAssertEqual(try DataReader(data: d).peekData(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: true,  includeDelimiter: true).data, d)
-		XCTAssertEqual(try DataReader(data: d).peekData(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
-		XCTAssertEqual(try DataReader(data: d).peekData(upTo: [Data()],                  matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
-		XCTAssertEqual(try DataReader(data: d).peekData(upTo: [nonEmptyDataNotInStream], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
-	}
-	
-	func testDataStreamPeekWithSize() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		
-		let s = DataReader(data: d)
-		XCTAssertEqual(try s.peekData(size: 1), Data(hexEncoded: "01")!)
-		XCTAssertEqual(try s.peekData(size: 1), Data(hexEncoded: "01")!)
-		
-		XCTAssertFalse(try s.hasReachedEOF())
-	}
-	
-	func testDataStreamPeekWithUpTo() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		let sep = Data(hexEncoded: "23")!
-		
-		let s = DataReader(data: d)
-		XCTAssertEqual(try s.peekData(upTo: [sep], matchingMode: .anyMatchWins, includeDelimiter: false).data, Data(hexEncoded: "01")!)
-		XCTAssertEqual(try s.peekData(upTo: [sep], matchingMode: .anyMatchWins, includeDelimiter: false).data, Data(hexEncoded: "01")!)
-		
-		XCTAssertFalse(try s.hasReachedEOF())
-	}
-	
-	func testDataStreamReadExactlyToLimit() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		
-		let ds = DataReader(data: d, readSizeLimit: 1)
-		let rd = try ds.readData(size: 1)
-		XCTAssertEqual(rd, d[0..<1])
-		
-		XCTAssertTrue(try ds.hasReachedEOF())
-	}
-	
-	func testStreamReadExactlyToLimit() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		
-		let s = InputStream(data: d)
-		s.open(); defer {s.close()}
-		let reader = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 2, readSizeLimit: 1)
-		let rd = try reader.readData(size: 1)
-		XCTAssertEqual(rd, d[0..<1])
-		
-		XCTAssertTrue(try reader.hasReachedEOF())
-	}
-	
-	func testStreamReadToEnd() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		
-		let s = InputStream(data: d)
-		s.open(); defer {s.close()}
-		let reader = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 2)
-		let rd = try reader.readDataToEnd()
-		XCTAssertEqual(rd, d)
-		
-		XCTAssertTrue(try reader.hasReachedEOF())
-	}
-	
-	func testStreamReadLine() throws {
-		let s = InputStream(data: Data("Hello World,\r\nHow are you\ntoday?\rHope you’re\n\rokay!".utf8))
-		s.open(); defer {s.close()}
-		
-		let r = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 2)
-		try checkReadLine(reader: r, expectedLine: "Hello World,", expectedSeparator: "\r\n")
-		try checkReadLine(reader: r, expectedLine: "How are you", expectedSeparator: "\n")
-		try checkReadLine(reader: r, expectedLine: "today?", expectedSeparator: "\r")
-		try checkReadLine(reader: r, expectedLine: "Hope you’re", expectedSeparator: "\n")
-		try checkReadLine(reader: r, expectedLine: "", expectedSeparator: "\r")
-		try checkReadLine(reader: r, expectedLine: "okay!", expectedSeparator: "")
-		XCTAssertNil(try r.readLine(allowUnixNewLines: true, allowLegacyMacOSNewLines: true, allowWindowsNewLines: true))
-		XCTAssertTrue(try r.hasReachedEOF())
-	}
-	
-	func testStreamReadToEndWithLimit() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		
-		let s = InputStream(data: d)
-		s.open(); defer {s.close()}
-		let reader = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 2, readSizeLimit: 1)
-		let rd = try reader.readDataToEnd()
-		XCTAssertEqual(rd, d[0..<1])
-		
-		XCTAssertTrue(try reader.hasReachedEOF())
-	}
-	
-	func testStreamReadToEndVariants() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		let nonEmptyDataNotInStream = Data(hexEncoded: "02")!
-		
-		let s = InputStream(data: d)
-		s.open(); defer {s.close()}
-		let reader = InputStreamReader(stream: s, bufferSize: 1, bufferSizeIncrement: 1)
-		XCTAssertEqual(try reader.peekData(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: true,  includeDelimiter: true).data, d)
-		XCTAssertEqual(try reader.peekData(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
-		XCTAssertEqual(try reader.peekData(upTo: [Data()],                  matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
-		XCTAssertEqual(try reader.peekData(upTo: [nonEmptyDataNotInStream], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, d)
-		
-		XCTAssertFalse(try reader.hasReachedEOF())
-	}
-	
-	func testStreamPeekWithSize() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		
-		let s = InputStream(data: d)
-		s.open(); defer {s.close()}
-		let reader = InputStreamReader(stream: s, bufferSize: 1, bufferSizeIncrement: 1)
-		XCTAssertEqual(try reader.peekData(size: 1), Data(hexEncoded: "01")!)
-		XCTAssertEqual(try reader.peekData(size: 1), Data(hexEncoded: "01")!)
-		
-		XCTAssertFalse(try reader.hasReachedEOF())
-	}
-	
-	func testStreamPeekWithUpTo() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		let sep = Data(hexEncoded: "23")!
-		
-		let s = InputStream(data: d)
-		s.open(); defer {s.close()}
-		let reader = InputStreamReader(stream: s, bufferSize: 1, bufferSizeIncrement: 1)
-		XCTAssertEqual(try reader.peekData(upTo: [sep], matchingMode: .anyMatchWins, includeDelimiter: false).data, Data(hexEncoded: "01")!)
-		XCTAssertEqual(try reader.peekData(upTo: [sep], matchingMode: .anyMatchWins, includeDelimiter: false).data, Data(hexEncoded: "01")!)
-		
-		XCTAssertFalse(try reader.hasReachedEOF())
+	func testReadToEndWithLimit() throws {
+		try runTest(hexDataString: "01 23 45 67 89", readSizeLimits: Array(0...5), bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertEqual(try reader.readDataToEnd(), data[0..<limit!])
+			XCTAssertTrue(try reader.hasReachedEOF())
+		}
 	}
 	
 	func testReadBiggerThanStream() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		let s = InputStream(data: d)
-		s.open(); defer {s.close()}
-		
-		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 1)
-		XCTAssertThrowsError(try bs.readData(size: 6))
-		let rd = try bs.readData(size: 6, allowReadingLess: true)
-		XCTAssertEqual(rd, d)
-		
-		XCTAssertTrue(try bs.hasReachedEOF())
+		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertThrowsError(try reader.readData(size: 6))
+			let rd = try reader.readData(size: 6, allowReadingLess: true)
+			XCTAssertEqual(rd, data)
+			
+			XCTAssertTrue(try reader.hasReachedEOF())
+		}
 	}
 	
 	func testReadBiggerThanLimit() throws {
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		let s = InputStream(data: d)
-		s.open(); defer {s.close()}
-		
-		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 1, readSizeLimit: 3)
-		XCTAssertThrowsError(try bs.readData(size: 4))
-		let rd = try bs.readData(size: 4, allowReadingLess: true)
-		XCTAssertEqual(rd, d[0..<3])
-		
-		XCTAssertTrue(try bs.hasReachedEOF())
+		try runTest(hexDataString: "01 23 45 67 89", readSizeLimits: [3], bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertThrowsError(try reader.readData(size: 4))
+			let rd1 = try reader.readData(size: 4, allowReadingLess: true)
+			XCTAssertEqual(rd1, data[0..<3])
+			
+			reader.readSizeLimit = 2
+			let rd2 = try reader.readData(size: 1, allowReadingLess: true)
+			XCTAssertEqual(rd2, Data())
+			
+			reader.readSizeLimit = 3
+			let rd3 = try reader.readData(size: 0, allowReadingLess: false)
+			XCTAssertEqual(rd3, Data())
+			
+			reader.readSizeLimit = 2
+			XCTAssertThrowsError(try reader.readData(size: 0, allowReadingLess: false))
+			
+			XCTAssertTrue(try reader.hasReachedEOF())
+		}
+	}
+	
+	func testReadToEndVariants() throws {
+		let nonEmptyDataNotInStream = Data(hexEncoded: "02")!
+		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertEqual(try reader.peekData(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: true,  includeDelimiter: true).data, data)
+			XCTAssertEqual(try reader.peekData(upTo: [],                        matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, data)
+			XCTAssertEqual(try reader.peekData(upTo: [Data()],                  matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, data)
+			XCTAssertEqual(try reader.readData(upTo: [nonEmptyDataNotInStream], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: true).data, data)
+			XCTAssertTrue(try reader.hasReachedEOF())
+		}
+	}
+	
+	func testPeekWithSize() throws {
+		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertEqual(try reader.peekData(size: 1), Data(hexEncoded: "01")!)
+			XCTAssertEqual(try reader.peekData(size: 1), Data(hexEncoded: "01")!)
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
+	}
+	
+	func testDataStreamPeekWithUpTo() throws {
+		let sep = Data(hexEncoded: "23")!
+		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertEqual(try reader.peekData(upTo: [sep], matchingMode: .anyMatchWins, includeDelimiter: false).data, Data(hexEncoded: "01")!)
+			XCTAssertEqual(try reader.peekData(upTo: [sep], matchingMode: .anyMatchWins, includeDelimiter: false).data, Data(hexEncoded: "01")!)
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
+	}
+	
+	func testReadExactlyToLimit() throws {
+		try runTest(hexDataString: "01 23 45 67 89", readSizeLimits: Array(0...5), bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertEqual(try reader.readData(size: limit!), data[0..<limit!])
+			XCTAssertTrue(try reader.hasReachedEOF())
+		}
 	}
 	
 	func testReadSmallerThanBufferData() throws {
-		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89")!)
-		s.open(); defer {s.close()}
-		
-		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 1)
-		let d = try bs.readData(size: 2)
-		XCTAssertEqual(d, Data(hexEncoded: "01 23")!)
-		
-		XCTAssertFalse(try bs.hasReachedEOF())
+		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(2...5), bufferSizeIncrements: Array(1...5), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertEqual(try reader.readData(size: 2), data[0..<2])
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
 	}
 	
 	func testReadBiggerThanBufferData() throws {
-		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89")!)
-		s.open(); defer {s.close()}
-		
-		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 1)
-		let d = try bs.readData(size: 4)
-		XCTAssertEqual(d, Data(hexEncoded: "01 23 45 67")!)
-		
-		XCTAssertFalse(try bs.hasReachedEOF())
+		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...4), bufferSizeIncrements: Array(1...5), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertEqual(try reader.readData(size: 4), data[0..<4])
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
 	}
 	
 	func testReadBiggerThanBufferDataTwice() throws {
-		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89 01 23 45 67 89")!)
-		s.open(); defer {s.close()}
-		
-		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 2)
-		let d1 = try bs.readData(size: 4)
-		XCTAssertEqual(d1, Data(hexEncoded: "01 23 45 67")!)
-		let d2 = try bs.readData(size: 4)
-		XCTAssertEqual(d2, Data(hexEncoded: "89 01 23 45")!)
-		
-		XCTAssertFalse(try bs.hasReachedEOF())
+		try runTest(hexDataString: "01 23 45 67 89 01 23 45 67 89", bufferSizes: Array(1...4), bufferSizeIncrements: Array(1...5), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertEqual(try reader.readData(size: 4), data[0..<4])
+			XCTAssertEqual(try reader.readData(size: 4), data[4..<8])
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
 	}
 	
 	func testReadBiggerThanBufferDataWithUpTo() throws {
-		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89")!)
-		s.open(); defer {s.close()}
-		
-		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 1)
-		let d = try bs.readData(upTo: [Data(hexEncoded: "89")!], matchingMode: .anyMatchWins, includeDelimiter: false).data
-		XCTAssertEqual(d, Data(hexEncoded: "01 23 45 67")!)
-		
-		XCTAssertFalse(try bs.hasReachedEOF())
+		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...4), bufferSizeIncrements: Array(1...5), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			let d = try reader.readData(upTo: [Data(hexEncoded: "89")!], matchingMode: .anyMatchWins, includeDelimiter: false).data
+			XCTAssertEqual(d, data[0..<4])
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
 	}
 	
 	func testReadBiggerThanBufferDataWithUpToTwice() throws {
-		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89 01 23 45 67 89")!)
-		s.open(); defer {s.close()}
-		
-		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 1)
-		let d1 = try bs.readData(upTo: [Data(hexEncoded: "89")!], matchingMode: .anyMatchWins, includeDelimiter: false).data
-		XCTAssertEqual(d1, Data(hexEncoded: "01 23 45 67")!)
-		_ = try bs.readData(size: 1)
-		let d2 = try bs.readData(upTo: [Data(hexEncoded: "89")!], matchingMode: .anyMatchWins, includeDelimiter: false).data
-		XCTAssertEqual(d2, Data(hexEncoded: "01 23 45 67")!)
-		
-		XCTAssertFalse(try bs.hasReachedEOF())
+		try runTest(hexDataString: "01 23 45 67 89 01 23 45 67 89", bufferSizes: Array(1...4), bufferSizeIncrements: Array(1...5), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			let d1 = try reader.readData(upTo: [Data(hexEncoded: "89")!], matchingMode: .anyMatchWins, includeDelimiter: false).data
+			XCTAssertEqual(d1, data[0..<4])
+			
+			_ = try reader.readData(size: 1)
+			
+			let d2 = try reader.readData(upTo: [Data(hexEncoded: "89")!], matchingMode: .anyMatchWins, includeDelimiter: false).data
+			XCTAssertEqual(d2, data[5..<9])
+			
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
 	}
 	
 	func testReadBiggerThanBufferDataWithUpToAndSmallestData() throws {
-		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89 98 76 54 32 10")!)
-		s.open(); defer {s.close()}
-		
-		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 2)
-		let d = try bs.readData(upTo: [Data(hexEncoded: "89")!, Data(hexEncoded: "98")!], matchingMode: .shortestDataWins, includeDelimiter: false).data
-		XCTAssertEqual(d, Data(hexEncoded: "01 23 45 67")!)
-		
-		XCTAssertFalse(try bs.hasReachedEOF())
+		try runTest(hexDataString: "01 23 45 67 89 98 76 54 32 10", bufferSizes: Array(1...4), bufferSizeIncrements: Array(1...5), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			let d = try reader.readData(upTo: [Data(hexEncoded: "89")!, Data(hexEncoded: "98")!], matchingMode: .shortestDataWins, includeDelimiter: false).data
+			XCTAssertEqual(d, data[0..<4])
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
 	}
 	
 	func testMatchingLongestData() throws {
-		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89 98 76 54 32 10")!)
-		s.open(); defer {s.close()}
-		
-		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 2)
-		let d = try bs.readData(upTo: [Data(hexEncoded: "89 98")!, Data(hexEncoded: "98")!, Data(hexEncoded: "76")!], matchingMode: .longestDataWins, includeDelimiter: true).data
-		XCTAssertEqual(d, Data(hexEncoded: "01 23 45 67 89 98 76")!)
-		
-		XCTAssertFalse(try bs.hasReachedEOF())
+		try runTest(hexDataString: "01 23 45 67 89 98 76 54 32 10", bufferSizes: Array(1...4), bufferSizeIncrements: Array(1...5), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			let d = try reader.readData(upTo: [Data(hexEncoded: "89 98")!, Data(hexEncoded: "98")!, Data(hexEncoded: "76")!], matchingMode: .longestDataWins, includeDelimiter: true).data
+			XCTAssertEqual(d, data[0..<7])
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
 	}
 	
 	func testMatchingFirstSepData() throws {
-		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89 98 76 54 32 10")!)
-		s.open(); defer {s.close()}
-		
-		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 2)
-		let d = try bs.readData(upTo: [Data(hexEncoded: "89 98")!, Data(hexEncoded: "98")!, Data(hexEncoded: "76")!], matchingMode: .firstMatchingDelimiterWins, includeDelimiter: false).data
-		XCTAssertEqual(d, Data(hexEncoded: "01 23 45 67")!)
-		
-		XCTAssertFalse(try bs.hasReachedEOF())
-	}
-	
-	func testReadFromFileHandleReader() throws {
-		let tmpFileURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent("StreamReaderTest_\(Int.random(in: 0..<4242))")
-		let d = Data(hexEncoded: "01 23 45 67 89")!
-		try d.write(to: tmpFileURL)
-		defer {_ = try? FileManager.default.removeItem(at: tmpFileURL)}
-		
-		let stream = try FileHandleReader(stream: FileHandle(forReadingFrom: tmpFileURL), bufferSize: 3, bufferSizeIncrement: 3)
-		let rd = try stream.readDataToEnd()
-		XCTAssertEqual(rd, d)
-		
-		XCTAssertTrue(try stream.hasReachedEOF())
+		try runTest(hexDataString: "01 23 45 67 89 98 76 54 32 10", bufferSizes: Array(1...4), bufferSizeIncrements: Array(1...5), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			let d = try reader.readData(upTo: [Data(hexEncoded: "89 98")!, Data(hexEncoded: "98")!, Data(hexEncoded: "76")!], matchingMode: .firstMatchingDelimiterWins, includeDelimiter: false).data
+			XCTAssertEqual(d, data[0..<4])
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
 	}
 	
 	@available(macOS 10.15.4, iOS 13.4, tvOS 13.4, *)
@@ -383,6 +217,44 @@ class StreamReaderTests : XCTestCase {
 		try fh.close() /* Make the reads following this line fail on purpose */
 		
 		XCTAssertThrowsError(try fh.read(buffer, maxLength: bufferSize))
+	}
+	
+	private func runTest(string: String, readSizeLimits: [Int?] = [nil], bufferSizes: [Int], bufferSizeIncrements: [Int], underlyingStreamReadSizeLimits: [Int?] = [nil], _ testHandler: (StreamReader, Data, Int?, Int?, Int?, Int?) throws -> Void) throws {
+		try runTest(data: Data(string.utf8), readSizeLimits: readSizeLimits, bufferSizes: bufferSizes, bufferSizeIncrements: bufferSizeIncrements, underlyingStreamReadSizeLimits: underlyingStreamReadSizeLimits, testHandler)
+	}
+	
+	private func runTest(hexDataString: String, readSizeLimits: [Int?] = [nil], bufferSizes: [Int], bufferSizeIncrements: [Int], underlyingStreamReadSizeLimits: [Int?] = [nil], _ testHandler: (StreamReader, Data, Int?, Int?, Int?, Int?) throws -> Void) throws {
+		try runTest(data: Data(hexEncoded: hexDataString)!, readSizeLimits: readSizeLimits, bufferSizes: bufferSizes, bufferSizeIncrements: bufferSizeIncrements, underlyingStreamReadSizeLimits: underlyingStreamReadSizeLimits, testHandler)
+	}
+	
+	private func runTest(data: Data, readSizeLimits: [Int?] = [nil], bufferSizes: [Int], bufferSizeIncrements: [Int], underlyingStreamReadSizeLimits: [Int?] = [nil], _ testHandler: (StreamReader, Data, Int?, Int?, Int?, Int?) throws -> Void) throws {
+		for readSizeLimit in readSizeLimits {
+			/* Test data reader */
+			try testHandler(DataReader(data: data, readSizeLimit: readSizeLimit), data, readSizeLimit, nil, nil, nil)
+			
+			for bufferSize in bufferSizes {
+				for bufferSizeIncrement in bufferSizeIncrements {
+					for underlyingStreamReadSizeLimit in underlyingStreamReadSizeLimits {
+						/* Test InputStream reader (from data) */
+						let s = InputStream(data: data)
+						s.open(); defer {s.close()}
+						try testHandler(InputStreamReader(stream: s, bufferSize: bufferSize, bufferSizeIncrement: bufferSizeIncrement, readSizeLimit: readSizeLimit, underlyingStreamReadSizeLimit: underlyingStreamReadSizeLimit), data, readSizeLimit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit)
+						
+						let tmpFileURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent("StreamReaderTest_\(Int.random(in: 0..<4242))")
+						try data.write(to: tmpFileURL)
+						defer {_ = try? FileManager.default.removeItem(at: tmpFileURL)}
+						
+						/* Test FileHandle reader (from file) */
+						try testHandler(FileHandleReader(stream: FileHandle(forReadingFrom: tmpFileURL), bufferSize: bufferSize, bufferSizeIncrement: bufferSizeIncrement, readSizeLimit: readSizeLimit, underlyingStreamReadSizeLimit: underlyingStreamReadSizeLimit), data, readSizeLimit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit)
+						
+						let fd = try FileDescriptor.open(tmpFileURL.path, .readOnly)
+						try fd.closeAfter{
+							try testHandler(FileHandleReader(stream: fd, bufferSize: bufferSize, bufferSizeIncrement: bufferSizeIncrement, readSizeLimit: readSizeLimit, underlyingStreamReadSizeLimit: underlyingStreamReadSizeLimit), data, readSizeLimit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit)
+						}
+					}
+				}
+			}
+		}
 	}
 	
 	private func checkReadLine(reader r: StreamReader, expectedLine: String, expectedSeparator: String) throws {

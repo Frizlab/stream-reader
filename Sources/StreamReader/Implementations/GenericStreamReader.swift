@@ -64,13 +64,13 @@ public final class GenericStreamReader : StreamReader {
 	by when the current buffer size is not big enough. Must be strictly greater
 	than 0.
 	- Parameter readSizeLimit: The maximum number of bytes allowed to be read
-	from the stream. Cannot be negative or 0.
+	from the stream. Cannot be negative.
 	- Parameter underlyingStreamReadSizeLimit: The max size to read from the
 	stream with a single read. Cannot be negative or 0. */
 	public init(stream: GenericReadStream, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, readSizeLimit limit: Int? = nil, underlyingStreamReadSizeLimit streamReadSizeLimit: Int? = nil) {
 		assert(size > 0)
 		assert(sizeIncrement > 0)
-		assert(limit == nil || limit! > 0)
+		assert(limit == nil || limit! >= 0)
 		assert(streamReadSizeLimit == nil || streamReadSizeLimit! > 0)
 
 		sourceStream = stream
@@ -196,10 +196,11 @@ public final class GenericStreamReader : StreamReader {
 			guard readContraints.allowReadingLess else {
 				throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)
 			}
-			if allowedToBeRead == 0 {
+			if allowedToBeRead <= 0 {
 				return UnsafeRawBufferPointer(start: nil, count: 0)
 			}
 		}
+		assert(allowedToBeRead == nil || allowedToBeRead! >= 0)
 		
 		/* We constrain the size to the maximum allowed to be read. */
 		let size = allowedToBeRead.flatMap{ min(size, $0) } ?? size
