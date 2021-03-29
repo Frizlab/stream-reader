@@ -21,7 +21,7 @@ internal struct Match {
 internal func matchDelimiters(inData data: UnsafeRawBufferPointer, dataStartOffset: Int, usingMatchingMode matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, minDelimiterLength: Int, withUnmatchedDelimiters unmatchedDelimiters: inout [(offset: Int, element: Data)], matchedDatas: inout [Match]) -> Match? {
 	/* Reversed enumeration in order to be able to remove an element from the
 	 * unmatchedDelimiters array while still enumerating it and keeping valid
-	 * indexes. Not 100% sure this is valid, but it seems to work… */
+	 * indexes. */
 	for enumeratedDelimiter in unmatchedDelimiters.enumerated().reversed() {
 		/* When Linux is not drunk anymore, we will be using data.firstRange(of: enumeratedDelimiter.element.element) */
 		if let range = awesomeFirstRange(data, enumeratedDelimiter.element.element) {
