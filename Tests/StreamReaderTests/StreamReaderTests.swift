@@ -334,6 +334,28 @@ class StreamReaderTests : XCTestCase {
 		XCTAssertFalse(try bs.hasReachedEOF())
 	}
 	
+	func testMatchingLongestData() throws {
+		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89 98 76 54 32 10")!)
+		s.open(); defer {s.close()}
+		
+		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 2)
+		let d = try bs.readData(upTo: [Data(hexEncoded: "89 98")!, Data(hexEncoded: "98")!, Data(hexEncoded: "76")!], matchingMode: .longestDataWins, includeDelimiter: true).data
+		XCTAssertEqual(d, Data(hexEncoded: "01 23 45 67 89 98 76")!)
+		
+		XCTAssertFalse(try bs.hasReachedEOF())
+	}
+	
+	func testMatchingFirstSepData() throws {
+		let s = InputStream(data: Data(hexEncoded: "01 23 45 67 89 98 76 54 32 10")!)
+		s.open(); defer {s.close()}
+		
+		let bs = InputStreamReader(stream: s, bufferSize: 3, bufferSizeIncrement: 2)
+		let d = try bs.readData(upTo: [Data(hexEncoded: "89 98")!, Data(hexEncoded: "98")!, Data(hexEncoded: "76")!], matchingMode: .firstMatchingDelimiterWins, includeDelimiter: false).data
+		XCTAssertEqual(d, Data(hexEncoded: "01 23 45 67")!)
+		
+		XCTAssertFalse(try bs.hasReachedEOF())
+	}
+	
 	func testReadFromFileHandleReader() throws {
 		let tmpFileURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent("StreamReaderTest_\(Int.random(in: 0..<4242))")
 		let d = Data(hexEncoded: "01 23 45 67 89")!
