@@ -208,7 +208,7 @@ public extension StreamReader {
 	func readLine(allowUnixNewLines: Bool = true, allowLegacyMacOSNewLines: Bool = false, allowWindowsNewLines: Bool = false) throws -> (line: Data, newLineChars: Data)? {
 		/* Unix:    lf
 		 * MacOS:   cr
-		 * Windows: cr + lf*/
+		 * Windows: cr + lf */
 		let lf = Data([0x0a /* \n */])
 		let cr = Data([0x0d /* \r */])
 		

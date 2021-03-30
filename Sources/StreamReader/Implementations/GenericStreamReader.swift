@@ -72,7 +72,7 @@ public final class GenericStreamReader : StreamReader {
 		assert(sizeIncrement > 0)
 		assert(limit == nil || limit! >= 0)
 		assert(streamReadSizeLimit == nil || streamReadSizeLimit! > 0)
-
+		
 		sourceStream = stream
 		
 		defaultBufferSize = size
