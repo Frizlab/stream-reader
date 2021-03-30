@@ -74,6 +74,21 @@ class StreamReaderTests : XCTestCase {
 		}
 	}
 	
+	func testUpToWithSepsNotInStream() throws {
+		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			XCTAssertThrowsError(try reader.peekData(upTo: [Data(hexEncoded: "45 54")!, Data(hexEncoded: "89 75 45")!], matchingMode: .longestDataWins, includeDelimiter: true))
+			XCTAssertFalse(try reader.hasReachedEOF())
+		}
+	}
+	
+	func testReadInt() throws {
+		try runTest(hexDataString: "01 23 45 67", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			let v: Int32 = try reader.readType()
+			XCTAssertEqual(v, 1732584193)
+			XCTAssertTrue(try reader.hasReachedEOF())
+		}
+	}
+	
 	func testReadBiggerThanLimit() throws {
 		try runTest(hexDataString: "01 23 45 67 89", readSizeLimits: [3], bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
 			XCTAssertThrowsError(try reader.readData(size: 4))
