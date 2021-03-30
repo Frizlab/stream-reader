@@ -137,12 +137,13 @@ public final class GenericStreamReader : StreamReader {
 		} while true
 		
 		if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
+			let ret = try handler(UnsafeRawBufferPointer(start: buffer + bufferStartPos, count: match.length), delimiters[match.delimiterIdx])
 			if updateReadPosition {
 				bufferStartPos += match.length
 				bufferValidLength -= match.length
 				currentReadPosition += match.length
 			}
-			return try handler(UnsafeRawBufferPointer(start: buffer + bufferStartPos, count: match.length), delimiters[match.delimiterIdx])
+			return ret
 		}
 		
 		guard delimiters.isEmpty || !failIfNotFound else {
