@@ -316,10 +316,7 @@ public final class GenericStreamReader : StreamReader {
 		
 		let bufferStart = buffer + bufferStartPos
 		if bufferValidLength < size {
-			/* The buffer does not contain enough: we read from the stream.
-			 * As per the specs of the function, we know there is enough space in
-			 * the buffer to hold the required size, and reading the given size
-			 * won’t break the readSizeLimit contract. */
+			/* The buffer does not contain enough: we read from the stream. */
 			repeat {
 				assert(size - bufferValidLength > 0, "INTERNAL LOGIC ERROR")
 				/* We try and read as much bytes as possible from the stream */
