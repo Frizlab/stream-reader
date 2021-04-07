@@ -94,14 +94,27 @@ public final class GenericStreamReader : StreamReader {
 		bufferSize = 0
 	}
 	
+	/**
+	Reads `size` bytes from the underlying stream into the internal buffer and
+	returns the number of bytes read. */
+	public func readStreamInBuffer(size: Int) throws -> Int {
+		let previousBufferValidLenth = bufferValidLength
+		_ = try readDataNoCurrentPosIncrement(size: (bufferValidLength + size), readContraints: .readUntilSizeOrStreamEnd)
+		let ret = (bufferValidLength - previousBufferValidLenth)
+		assert(ret <= size, "INTERNAL ERROR")
+		assert(ret >= 0, "INTERNAL ERROR")
+		return ret
+	}
+	
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
 		let ret = try readDataNoCurrentPosIncrement(size: size, readContraints: allowReadingLess ? .readUntilSizeOrStreamEnd : .getExactSize)
+		assert(ret.count <= bufferValidLength, "INTERNAL ERROR")
+		assert(ret.count <= size, "INTERNAL ERROR")
 		if updateReadPosition {
 			currentReadPosition += ret.count
 			bufferValidLength -= ret.count
 			bufferStartPos += ret.count
 		}
-		assert(ret.count <= size, "INTERNAL ERROR")
 		return try handler(ret)
 	}
 	
