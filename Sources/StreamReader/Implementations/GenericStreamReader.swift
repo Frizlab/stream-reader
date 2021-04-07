@@ -99,10 +99,23 @@ public final class GenericStreamReader : StreamReader {
 	
 	/**
 	Reads `size` bytes from the underlying stream into the internal buffer and
-	returns the number of bytes read. */
-	public func readStreamInBuffer(size: Int) throws -> Int {
+	returns the number of bytes read.
+	
+	The `readSizeLimit` and `underlyingStreamReadSizeLimit` variables are
+	respected when using this method.
+	
+	- Important: If the buffer is big enough, might read _more_ bytes than asked.
+	Can also read less (if the end of the stream is reached, or if only one read
+	is allowed and read returned less than asked).
+	
+	- Parameter size: The number of bytes you want the buffer to be filled with
+	from the stream.
+	- Parameter allowMoreThanOneRead: If `true`, the method will read from the
+	stream until the asked size is read or the end of stream is reached.
+	- Returns: The number of bytes acutally read from the stream. */
+	public func readStreamInBuffer(size: Int, allowMoreThanOneRead: Bool = false) throws -> Int {
 		let previousBufferValidLenth = bufferValidLength
-		_ = try readDataNoCurrentPosIncrement(size: (bufferValidLength + size), readContraints: .readUntilSizeOrStreamEnd)
+		_ = try readDataNoCurrentPosIncrement(size: (bufferValidLength + size), readContraints: allowMoreThanOneRead ? .readUntilSizeOrStreamEnd : .readFromStreamMaxOnce)
 		let ret = (bufferValidLength - previousBufferValidLenth)
 		assert(ret <= size, "INTERNAL LOGIC ERROR")
 		assert(ret >= 0, "INTERNAL LOGIC ERROR")
