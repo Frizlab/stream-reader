@@ -37,9 +37,17 @@ public final class GenericStreamReader : StreamReader {
 	reading up to given delimiters and there is no space left in the buffer. */
 	public var bufferSizeIncrement: Int
 	
+	public private(set) var hasReachedEOF = false
 	public private(set) var currentReadPosition = 0
 	
-	public var readSizeLimit: Int?
+	/** Changing this to a greater value will force `hasReachedEOF` to `false`. */
+	public var readSizeLimit: Int? {
+		didSet {
+			if readSizeLimit ?? Int.max > oldValue ?? Int.max {
+				hasReachedEOF = false
+			}
+		}
+	}
 	/**
 	The max size to read from the stream with a single read. Set to `nil` for no
 	max.
@@ -226,6 +234,7 @@ public final class GenericStreamReader : StreamReader {
 				throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)
 			}
 			if allowedToBeRead <= 0 {
+				hasReachedEOF = true
 				return UnsafeRawBufferPointer(start: nil, count: 0)
 			}
 		}
@@ -342,6 +351,7 @@ public final class GenericStreamReader : StreamReader {
 				
 				if readContraints == .readFromStreamMaxOnce {break}
 				guard sizeRead > 0 else {
+					hasReachedEOF = true
 					if readContraints.allowReadingLess {break}
 					else                               {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
 				}

@@ -17,6 +17,11 @@ public final class DataReader : StreamReader {
 	
 	public var readSizeLimit: Int?
 	
+	public var hasReachedEOF: Bool {
+		if let rsl = readSizeLimit {return currentReadPosition >= min(sourceDataSize, rsl)}
+		else                       {return currentReadPosition >=     sourceDataSize}
+	}
+	
 	public init(data: Data, readSizeLimit limit: Int? = nil) {
 		sourceData = data
 		sourceDataSize = sourceData.count

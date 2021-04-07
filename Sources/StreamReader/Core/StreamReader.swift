@@ -12,6 +12,8 @@ import Foundation
 
 public protocol StreamReader : class {
 	
+	var hasReachedEOF: Bool {get}
+	
 	/**
 	The index of the first byte returned from the stream at the next read, where
 	0 is the first byte of the stream.
@@ -154,9 +156,9 @@ public extension StreamReader {
 	Has EOF been reached?
 	
 	- Important: If the read size limit has not been reached, one byte might be
-	read from the underlying stream when using this method though the
+	read from the underlying stream when using this method, though the
 	`currentReadPosition` of the stream reader will never change. */
-	func hasReachedEOF() throws -> Bool {
+	func checkForEOF() throws -> Bool {
 		return try peekData(size: 1, allowReadingLess: true).isEmpty
 	}
 	
