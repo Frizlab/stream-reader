@@ -66,12 +66,15 @@ public final class GenericStreamReader : StreamReader {
 	- Parameter readSizeLimit: The maximum number of bytes allowed to be read
 	from the stream. Cannot be negative.
 	- Parameter underlyingStreamReadSizeLimit: The max size to read from the
-	stream with a single read. Cannot be negative or 0. */
+	stream with a single read. Cannot be negative. If 0, the reader is
+	effectively forbidden from reading the underlying stream. If a read operation
+	is done that would require reading from the stream (not enough data in the
+	buffer), the `streamReadForbidden` error is thrown. */
 	public init(stream: GenericReadStream, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, readSizeLimit limit: Int? = nil, underlyingStreamReadSizeLimit streamReadSizeLimit: Int? = nil) {
 		assert(size > 0)
 		assert(sizeIncrement > 0)
 		assert(limit == nil || limit! >= 0)
-		assert(streamReadSizeLimit == nil || streamReadSizeLimit! > 0)
+		assert(streamReadSizeLimit == nil || streamReadSizeLimit! >= 0)
 		
 		sourceStream = stream
 		
@@ -101,15 +104,15 @@ public final class GenericStreamReader : StreamReader {
 		let previousBufferValidLenth = bufferValidLength
 		_ = try readDataNoCurrentPosIncrement(size: (bufferValidLength + size), readContraints: .readUntilSizeOrStreamEnd)
 		let ret = (bufferValidLength - previousBufferValidLenth)
-		assert(ret <= size, "INTERNAL ERROR")
-		assert(ret >= 0, "INTERNAL ERROR")
+		assert(ret <= size, "INTERNAL LOGIC ERROR")
+		assert(ret >= 0, "INTERNAL LOGIC ERROR")
 		return ret
 	}
 	
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
 		let ret = try readDataNoCurrentPosIncrement(size: size, readContraints: allowReadingLess ? .readUntilSizeOrStreamEnd : .getExactSize)
-		assert(ret.count <= bufferValidLength, "INTERNAL ERROR")
-		assert(ret.count <= size, "INTERNAL ERROR")
+		assert(ret.count <= bufferValidLength, "INTERNAL LOGIC ERROR")
+		assert(ret.count <= size, "INTERNAL LOGIC ERROR")
 		if updateReadPosition {
 			currentReadPosition += ret.count
 			bufferValidLength -= ret.count
@@ -306,10 +309,16 @@ public final class GenericStreamReader : StreamReader {
 			 * won’t break the readSizeLimit contract. */
 			repeat {
 				let sizeToRead: Int
+				assert(size - bufferValidLength > 0, "INTERNAL LOGIC ERROR")
 				if let readLimit = underlyingStreamReadSizeLimit {sizeToRead = min(readLimit, size - bufferValidLength)}
 				else                                             {sizeToRead =                size - bufferValidLength}
-				assert(sizeToRead > 0, "INTERNAL LOGIC ERROR")
 				assert(sizeToRead <= bufferSize - (bufferStartPos + bufferValidLength), "INTERNAL LOGIC ERROR")
+				
+				guard sizeToRead > 0 else {
+					assert(underlyingStreamReadSizeLimit! == 0, "INTERNAL LOGIC ERROR")
+					throw StreamReaderError.streamReadForbidden
+				}
+				
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
 				bufferValidLength += sizeRead
 				totalReadBytesCount += sizeRead
