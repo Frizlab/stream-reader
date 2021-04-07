@@ -117,7 +117,6 @@ public final class GenericStreamReader : StreamReader {
 		let previousBufferValidLenth = bufferValidLength
 		_ = try readDataNoCurrentPosIncrement(size: (bufferValidLength + size), readContraints: allowMoreThanOneRead ? .readUntilSizeOrStreamEnd : .readFromStreamMaxOnce)
 		let ret = (bufferValidLength - previousBufferValidLenth)
-		assert(ret <= size, "INTERNAL LOGIC ERROR")
 		assert(ret >= 0, "INTERNAL LOGIC ERROR")
 		return ret
 	}

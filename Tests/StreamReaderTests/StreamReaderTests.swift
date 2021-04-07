@@ -3,7 +3,6 @@
  * StreamReader
  *
  * Created by François Lamboley on 18/12/2016.
- * Copyright © 2016 frizlab. All rights reserved.
  */
 
 import Foundation
@@ -16,18 +15,6 @@ import SystemPackage
 
 
 class StreamReaderTests : XCTestCase {
-	
-	override func setUp() {
-		super.setUp()
-		
-		/* Setup code goes here. */
-	}
-	
-	override func tearDown() {
-		/* Teardown code goes here. */
-		
-		super.tearDown()
-	}
 	
 	func testBasicUpToDelimiterRead() throws {
 		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
@@ -244,6 +231,24 @@ class StreamReaderTests : XCTestCase {
 			}
 			XCTAssertTrue(try reader.hasReachedEOF())
 			XCTAssertEqual(lines, ["aa", "77y", "d", "d"])
+		}
+	}
+	
+	func testReadUnderlyingStream() throws {
+		let data = Data(hexEncoded: "01 23 45 67 89")!
+		
+		for bufferSize in 1...4 {
+			for bufferSizeIncrement in 1...5 {
+				for allowMoreThanOneRead in [true, false] {
+					let s = InputStream(data: data)
+					s.open(); defer {s.close()}
+					let readSizeLimit = 3
+					let underlyingStreamReadSizeLimit = 2
+					let reader = InputStreamReader(stream: s, bufferSize: bufferSize, bufferSizeIncrement: bufferSizeIncrement, readSizeLimit: readSizeLimit, underlyingStreamReadSizeLimit: underlyingStreamReadSizeLimit)
+					XCTAssertEqual(try reader.readStreamInBuffer(size: 1, allowMoreThanOneRead: allowMoreThanOneRead), max(min(underlyingStreamReadSizeLimit, bufferSize), 1))
+					XCTAssertEqual(try reader.readStreamInBuffer(size: 2, allowMoreThanOneRead: allowMoreThanOneRead), readSizeLimit - min(underlyingStreamReadSizeLimit, bufferSize))
+				}
+			}
 		}
 	}
 	
