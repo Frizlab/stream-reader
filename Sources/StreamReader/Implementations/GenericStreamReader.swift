@@ -321,10 +321,17 @@ public final class GenericStreamReader : StreamReader {
 			 * the buffer to hold the required size, and reading the given size
 			 * won’t break the readSizeLimit contract. */
 			repeat {
-				let sizeToRead: Int
 				assert(size - bufferValidLength > 0, "INTERNAL LOGIC ERROR")
-				if let readLimit = underlyingStreamReadSizeLimit {sizeToRead = min(readLimit, size - bufferValidLength)}
-				else                                             {sizeToRead =                size - bufferValidLength}
+				/* We try and read as much bytes as possible from the stream */
+				let unconstrainedSizeToRead = bufferSize - (bufferStartPos + bufferValidLength)
+				/* But we have to constrain to the size allowed to be read */
+				let sizeAllowedToBeRead: Int
+				if let readSizeLimit = readSizeLimit {sizeAllowedToBeRead = min(readSizeLimit - totalReadBytesCount, unconstrainedSizeToRead)}
+				else                                 {sizeAllowedToBeRead =                                          unconstrainedSizeToRead}
+				/* And to the underlying stream read size limit */
+				let sizeToRead: Int
+				if let readLimit = underlyingStreamReadSizeLimit {sizeToRead = min(readLimit, sizeAllowedToBeRead)}
+				else                                             {sizeToRead =                sizeAllowedToBeRead}
 				assert(sizeToRead <= bufferSize - (bufferStartPos + bufferValidLength), "INTERNAL LOGIC ERROR")
 				
 				guard sizeToRead > 0 else {
