@@ -238,6 +238,11 @@ public final class GenericStreamReader : StreamReader {
 	}
 	
 	private func readDataNoCurrentPosIncrement(size: Int, readContraints: ReadContraints) throws -> UnsafeRawBufferPointer {
+		assert(size >= 0)
+		/* If we want to read 0 bytes, whether we’ve reached EOF or we are allowed
+		 * to read more bytes, we can return directly an empty buffer. */
+		guard size > 0 else {return UnsafeRawBufferPointer(start: nil, count: 0)}
+		/* We check reading the given size is allowed. */
 		let allowedToBeRead = readSizeLimit.flatMap{ $0 - currentReadPosition }
 		if let allowedToBeRead = allowedToBeRead, allowedToBeRead < size {
 			guard readContraints.allowReadingLess else {
@@ -245,8 +250,13 @@ public final class GenericStreamReader : StreamReader {
 			}
 			if allowedToBeRead <= 0 {
 				streamHasReachedEOF = true
-				return UnsafeRawBufferPointer(start: nil, count: 0)
 			}
+		}
+		/* If we have reached EOF (not of the stream, the one of the reader), we
+		 * know there is nothing more to return. */
+		guard !hasReachedEOF else {
+			if readContraints.allowReadingLess {return UnsafeRawBufferPointer(start: nil, count: 0)}
+			else                               {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)}
 		}
 		assert(allowedToBeRead == nil || allowedToBeRead! >= 0)
 		

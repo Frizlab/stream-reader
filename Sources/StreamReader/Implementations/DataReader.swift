@@ -36,6 +36,10 @@ public final class DataReader : StreamReader {
 		assert(size >= 0, "Cannot read a negative number of bytes!")
 		assert(currentReadPosition <= sourceDataSize, "INTERNAL ERROR")
 		
+		guard size > 0 else {
+			return try handler(UnsafeRawBufferPointer(start: nil, count: 0))
+		}
+		
 		if !allowReadingLess {
 			if let maxRead = readSizeLimit {
 				guard currentReadPosition + size <= maxRead else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)}

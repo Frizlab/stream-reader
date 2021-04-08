@@ -105,7 +105,7 @@ class StreamReaderTests : XCTestCase {
 			XCTAssertEqual(rd3, Data())
 			
 			reader.readSizeLimit = 2
-			XCTAssertThrowsError(try reader.readData(size: 0, allowReadingLess: false))
+			XCTAssertEqual(try reader.readData(size: 0, allowReadingLess: false), Data())
 			
 			XCTAssertTrue(try reader.checkForEOF())
 			XCTAssertTrue(reader.streamHasReachedEOF)

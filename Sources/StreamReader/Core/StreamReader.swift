@@ -66,6 +66,9 @@ public protocol StreamReader : class {
 	You should not assume the memory you get is bound to a particular type. Use
 	the memory rebinding methods if you need them.
 	
+	Reading a data of size 0 must never fail and always return an empty Data
+	object.
+	
 	- Important: For the memory to stay valid and immutable in the handler, do
 	**NOT** do any stream operation inside the handler.
 	
@@ -231,11 +234,6 @@ public extension StreamReader {
 		 * Windows: cr + lf */
 		let lf = Data([0x0a /* \n */])
 		let cr = Data([0x0d /* \r */])
-		
-		guard !hasReachedEOF else {
-			/* If EOF is reached, we know we can return nil. */
-			return nil
-		}
 		
 		let separators = (allowUnixNewLines ? [lf] : []) + (allowLegacyMacOSNewLines ? [cr] : []) + (!allowLegacyMacOSNewLines && allowWindowsNewLines ? [cr + lf] : [])
 		let (line, separator) = try readData(upTo: separators, matchingMode: .shortestDataWins, failIfNotFound: false, includeDelimiter: false)
