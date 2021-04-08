@@ -212,6 +212,13 @@ public extension StreamReader {
 	- Returns: The line and line separator, or `nil` if the end of the stream was
 	reached. */
 	func readLine(allowUnixNewLines: Bool = true, allowLegacyMacOSNewLines: Bool = false, allowWindowsNewLines: Bool = false) throws -> (line: Data, newLineChars: Data)? {
+		guard !hasReachedEOF else {
+			/* If EOF has been reached, the stream reader protocol contract
+			 * guarantees the next read will be empty, so we can return nil
+			 * directly. */
+			return nil
+		}
+		
 		/* Unix:    lf
 		 * MacOS:   cr
 		 * Windows: cr + lf */
