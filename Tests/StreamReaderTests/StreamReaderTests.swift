@@ -274,6 +274,18 @@ class StreamReaderTests : XCTestCase {
 		}
 	}
 	
+	func testHasReachedEOF() throws {
+		let data = Data(hexEncoded: "01 23 45 67 89")!
+		
+		let s = InputStream(data: data)
+		s.open(); defer {s.close()}
+		let reader = InputStreamReader(stream: s, bufferSize: 1, bufferSizeIncrement: 1, readSizeLimit: nil, underlyingStreamReadSizeLimit: nil)
+		XCTAssertEqual(try reader.readStreamInBuffer(size: data.count, allowMoreThanOneRead: false), data.count)
+		XCTAssertFalse(reader.hasReachedEOF)
+		XCTAssertEqual(try reader.readStreamInBuffer(size: 1, allowMoreThanOneRead: false), 0)
+		XCTAssertTrue(reader.hasReachedEOF)
+	}
+	
 	@available(macOS 10.15.4, iOS 13.4, tvOS 13.4, *)
 	func testReadErrorFromFileHandle() throws {
 		let tmpFileURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent("StreamReaderTest_\(Int.random(in: 0..<4242))")
