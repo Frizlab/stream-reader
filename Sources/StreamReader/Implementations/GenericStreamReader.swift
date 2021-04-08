@@ -127,7 +127,8 @@ public final class GenericStreamReader : StreamReader {
 	returns the number of bytes read.
 	
 	The `readSizeLimit` and `underlyingStreamReadSizeLimit` variables are
-	respected when using this method.
+	respected when using this method, unless instructed otherwise in the
+	parameters.
 	
 	- Important: If the buffer is big enough, might read _more_ bytes than asked.
 	Can also read less (if the end of the stream is reached, or if only one read
@@ -137,8 +138,15 @@ public final class GenericStreamReader : StreamReader {
 	from the stream.
 	- Parameter allowMoreThanOneRead: If `true`, the method will read from the
 	stream until the asked size is read or the end of stream is reached.
+	- Parameter bypassUnderlyingStreamReadSizeLimit: A simple convenience to set
+	`underlyingStreamReadSizeLimit` to `nil` before reading from the stream and
+	set it back to whatever its value was after the read.
 	- Returns: The number of bytes acutally read from the stream. */
-	public func readStreamInBuffer(size: Int, allowMoreThanOneRead: Bool = false) throws -> Int {
+	public func readStreamInBuffer(size: Int, allowMoreThanOneRead: Bool = false, bypassUnderlyingStreamReadSizeLimit: Bool = false) throws -> Int {
+		let previousUnderlyingStreamReadSizeLimit = underlyingStreamReadSizeLimit
+		if bypassUnderlyingStreamReadSizeLimit {underlyingStreamReadSizeLimit = nil}
+		defer {underlyingStreamReadSizeLimit = previousUnderlyingStreamReadSizeLimit}
+		
 		let previousBufferValidLenth = bufferValidLength
 		_ = try readDataNoCurrentPosIncrement(size: (bufferValidLength + size), readContraints: allowMoreThanOneRead ? .readUntilSizeOrStreamEnd : .readFromStreamMaxOnce)
 		let ret = (bufferValidLength - previousBufferValidLenth)
