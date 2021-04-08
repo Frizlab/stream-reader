@@ -37,10 +37,21 @@ public final class GenericStreamReader : StreamReader {
 	reading up to given delimiters and there is no space left in the buffer. */
 	public var bufferSizeIncrement: Int
 	
+	/**
+	Whether `EOF` has been reached, either because of `readSizeLimit` constraint,
+	or because end of underlying stream has been reached. See doc of
+	`readSizeLimit` for a few more info. */
 	public private(set) var hasReachedEOF = false
 	public private(set) var currentReadPosition = 0
 	
-	/** Changing this to a greater value will force `hasReachedEOF` to `false`. */
+	/** The maximum number of bytes that can be returned by the read methods
+	(when updating read position), and also the number of bytes that can be read
+	from the underlying stream.
+	
+	Changing this to a greater value will force `hasReachedEOF` to `false`, but
+	next read might reach `EOF` directly regardless.
+	
+	Changing this to a lower value will not change `hasReachedEOF` at all. */
 	public var readSizeLimit: Int? {
 		didSet {
 			if readSizeLimit ?? Int.max > oldValue ?? Int.max {
