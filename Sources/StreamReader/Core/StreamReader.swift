@@ -12,6 +12,9 @@ import Foundation
 
 public protocol StreamReader : class {
 	
+	/**
+	Whether `EOF` has been reached, either because of `readSizeLimit` constraint,
+	or because end of underlying stream has been reached. */
 	var hasReachedEOF: Bool {get}
 	
 	/**
@@ -38,8 +41,9 @@ public protocol StreamReader : class {
 	possible for more than `readSizeLimit` to _have been read_ from the stream,
 	or for `currentReadPosition` to be greater than `readSizeLimit`.
 	
-	If this `currentReadPosition` is greater than `readSizeLimit`, the
-	`.notEnoughData` error would be thrown if trying to read more data.
+	When `currentReadPosition` is greater than `readSizeLimit`, trying to read
+	more data will throw the `.notEnoughData` error (or return an empty data if
+	reading less than asked is allowed).
 	
 	This property can be useful because it is usually not possible to add data
 	back to a stream once it has been read from. If you know your stream can have
