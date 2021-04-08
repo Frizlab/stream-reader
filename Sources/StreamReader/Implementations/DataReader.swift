@@ -32,6 +32,11 @@ public final class DataReader : StreamReader {
 		readSizeLimit = limit
 	}
 	
+	public func clearStreamHasReachedEOF() {
+		/* nop: the data reader has always reached EOF because all of the data is
+		 *      in memory at all time. */
+	}
+	
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
 		assert(size >= 0, "Cannot read a negative number of bytes!")
 		assert(currentReadPosition <= sourceDataSize, "INTERNAL ERROR")

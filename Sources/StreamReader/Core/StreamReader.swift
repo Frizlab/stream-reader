@@ -24,6 +24,11 @@ public protocol StreamReader : class {
 	var currentStreamReadPosition: Int {get}
 	
 	/**
+	Force set `streamHasReachedEOF` to `false`. Call this before calling the read
+	methods to force a read when EOF has been reached. */
+	func clearStreamHasReachedEOF()
+	
+	/**
 	The index of the first byte returned from the stream at the next read, where
 	0 is the first byte of the stream.
 	

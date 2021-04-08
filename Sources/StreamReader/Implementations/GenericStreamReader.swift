@@ -118,6 +118,10 @@ public final class GenericStreamReader : StreamReader {
 		bufferSize = 0
 	}
 	
+	public func clearStreamHasReachedEOF() {
+		streamHasReachedEOF = false
+	}
+	
 	/**
 	Reads `size` bytes from the underlying stream into the internal buffer and
 	returns the number of bytes read.
