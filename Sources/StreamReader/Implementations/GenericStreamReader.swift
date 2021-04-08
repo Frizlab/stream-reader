@@ -358,11 +358,11 @@ public final class GenericStreamReader : StreamReader {
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
 				bufferValidLength += sizeRead
 				totalReadBytesCount += sizeRead
+				if sizeRead == 0 {hasReachedEOF = true}
 				assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)
 				
 				if readContraints == .readFromStreamMaxOnce {break}
 				guard sizeRead > 0 else {
-					hasReachedEOF = true
 					if readContraints.allowReadingLess {break}
 					else                               {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
 				}
