@@ -13,9 +13,15 @@ import Foundation
 public protocol StreamReader : class {
 	
 	/**
-	Whether `EOF` has been reached, either because of `readSizeLimit` constraint,
-	or because end of underlying stream has been reached. */
-	var hasReachedEOF: Bool {get}
+	Whether _the underlying stream_’s `EOF` has been reached, either because of
+	`readSizeLimit` constraint, or because the actual end of the stream has been
+	reached. */
+	var streamHasReachedEOF: Bool {get}
+	/**
+	The number of bytes read _from the underlying stream_. Can be greater than
+	`readSizeLimit` iif `readSizeLimit` has been changed to a lower value than
+	`currentStreamReadPosition`. */
+	var currentStreamReadPosition: Int {get}
 	
 	/**
 	The index of the first byte returned from the stream at the next read, where
@@ -26,8 +32,8 @@ public protocol StreamReader : class {
 	var currentReadPosition: Int {get}
 	
 	/**
-	The maximum total number of bytes allowed to be read _from the underlying
-	stream_, and the maximum value possible for `currentReadPosition`.
+	The maximum value possible for `currentReadPosition` **and** the maximum
+	total number of bytes allowed to be read _from the underlying stream_.
 	
 	If set to `nil`, there are no limits.
 	
@@ -157,13 +163,21 @@ public extension StreamReader {
 public extension StreamReader {
 	
 	/**
-	Has EOF been reached?
+	Returns `true` if the underlying stream has reached EOF _and_ the current
+	stream read position is the same (or lower than) the current read position. */
+	var hasReachedEOF: Bool {
+		return streamHasReachedEOF && currentReadPosition >= currentStreamReadPosition
+	}
 	
-	- Important: If the read size limit has not been reached, one byte might be
-	read from the underlying stream when using this method, though the
-	`currentReadPosition` of the stream reader will never change. */
+	/**
+	Actively check for `EOF` in the stream.
+	
+	- Important: If the read size limit has not been reached and EOF has not been
+	definitely reached, one byte might be read from the underlying stream when
+	using this method, though the `currentReadPosition` of the stream reader will
+	never change. */
 	func checkForEOF() throws -> Bool {
-		return try peekData(size: 1, allowReadingLess: true).isEmpty
+		return try hasReachedEOF || peekData(size: 1, allowReadingLess: true).isEmpty
 	}
 	
 	func readData(size: Int, allowReadingLess: Bool = false) throws -> Data {
@@ -212,18 +226,16 @@ public extension StreamReader {
 	- Returns: The line and line separator, or `nil` if the end of the stream was
 	reached. */
 	func readLine(allowUnixNewLines: Bool = true, allowLegacyMacOSNewLines: Bool = false, allowWindowsNewLines: Bool = false) throws -> (line: Data, newLineChars: Data)? {
-		guard !hasReachedEOF else {
-			/* If EOF has been reached, the stream reader protocol contract
-			 * guarantees the next read will be empty, so we can return nil
-			 * directly. */
-			return nil
-		}
-		
 		/* Unix:    lf
 		 * MacOS:   cr
 		 * Windows: cr + lf */
 		let lf = Data([0x0a /* \n */])
 		let cr = Data([0x0d /* \r */])
+		
+		guard !hasReachedEOF else {
+			/* If EOF is reached, we know we can return nil. */
+			return nil
+		}
 		
 		let separators = (allowUnixNewLines ? [lf] : []) + (allowLegacyMacOSNewLines ? [cr] : []) + (!allowLegacyMacOSNewLines && allowWindowsNewLines ? [cr + lf] : [])
 		let (line, separator) = try readData(upTo: separators, matchingMode: .shortestDataWins, failIfNotFound: false, includeDelimiter: false)

@@ -41,21 +41,23 @@ public final class GenericStreamReader : StreamReader {
 	Whether `EOF` has been reached, either because of `readSizeLimit` constraint,
 	or because end of underlying stream has been reached. See doc of
 	`readSizeLimit` for a few more info. */
-	public private(set) var hasReachedEOF = false
+	public private(set) var streamHasReachedEOF = false
+	public private(set) var currentStreamReadPosition: Int
 	public private(set) var currentReadPosition = 0
 	
-	/** The maximum number of bytes that can be returned by the read methods
-	(when updating read position), and also the number of bytes that can be read
-	from the underlying stream.
+	/**
+	The maximum number of bytes that can be returned by the read methods (when
+	updating read position), and also the number of bytes that can be read from
+	the underlying stream.
 	
-	Changing this to a greater value will force `hasReachedEOF` to `false`, but
-	next read might reach `EOF` directly regardless.
+	Changing this to a greater value will force `streamHasReachedEOF` to `false`,
+	but next read might reach `EOF` directly regardless.
 	
-	Changing this to a lower value will not change `hasReachedEOF` at all. */
+	Changing this to a lower value will not change `streamHasReachedEOF` at all. */
 	public var readSizeLimit: Int? {
 		didSet {
 			if readSizeLimit ?? Int.max > oldValue ?? Int.max {
-				hasReachedEOF = false
+				streamHasReachedEOF = false
 			}
 		}
 	}
@@ -105,7 +107,7 @@ public final class GenericStreamReader : StreamReader {
 		bufferStartPos = 0
 		bufferValidLength = 0
 		
-		totalReadBytesCount = 0
+		currentStreamReadPosition = 0
 		
 		readSizeLimit = limit
 		underlyingStreamReadSizeLimit = streamReadSizeLimit
@@ -225,9 +227,6 @@ public final class GenericStreamReader : StreamReader {
 	private var bufferStartPos: Int
 	private var bufferValidLength: Int
 	
-	/** The total number of bytes read from the source stream. */
-	private var totalReadBytesCount = 0
-	
 	private enum ReadContraints {
 		case getExactSize
 		case readUntilSizeOrStreamEnd
@@ -245,7 +244,7 @@ public final class GenericStreamReader : StreamReader {
 				throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)
 			}
 			if allowedToBeRead <= 0 {
-				hasReachedEOF = true
+				streamHasReachedEOF = true
 				return UnsafeRawBufferPointer(start: nil, count: 0)
 			}
 		}
@@ -342,8 +341,8 @@ public final class GenericStreamReader : StreamReader {
 				let unconstrainedSizeToRead = bufferSize - (bufferStartPos + bufferValidLength)
 				/* But we have to constrain to the size allowed to be read */
 				let sizeAllowedToBeRead: Int
-				if let readSizeLimit = readSizeLimit {sizeAllowedToBeRead = min(readSizeLimit - totalReadBytesCount, unconstrainedSizeToRead)}
-				else                                 {sizeAllowedToBeRead =                                          unconstrainedSizeToRead}
+				if let readSizeLimit = readSizeLimit {sizeAllowedToBeRead = min(readSizeLimit - currentStreamReadPosition, unconstrainedSizeToRead)}
+				else                                 {sizeAllowedToBeRead =                                                unconstrainedSizeToRead}
 				/* And to the underlying stream read size limit */
 				let sizeToRead: Int
 				if let readLimit = underlyingStreamReadSizeLimit {sizeToRead = min(readLimit, sizeAllowedToBeRead)}
@@ -357,9 +356,9 @@ public final class GenericStreamReader : StreamReader {
 				
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
 				bufferValidLength += sizeRead
-				totalReadBytesCount += sizeRead
-				if sizeRead == 0 {hasReachedEOF = true}
-				assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)
+				currentStreamReadPosition += sizeRead
+				if sizeRead == 0 {streamHasReachedEOF = true}
+				assert(readSizeLimit == nil || currentStreamReadPosition <= readSizeLimit!)
 				
 				if readContraints == .readFromStreamMaxOnce {break}
 				guard sizeRead > 0 else {

@@ -13,18 +13,22 @@ public final class DataReader : StreamReader {
 	
 	public let sourceData: Data
 	public let sourceDataSize: Int
+	
 	public private(set) var currentReadPosition = 0
 	
-	public var readSizeLimit: Int?
+	/**
+	The whole data is in memory: the “underlying stream” (the `sourceData`) is
+	_always_ read to `EOF`. */
+	public let streamHasReachedEOF = true
+	/** Always the size of the source data. */
+	public let currentStreamReadPosition: Int
 	
-	public var hasReachedEOF: Bool {
-		if let rsl = readSizeLimit {return currentReadPosition >= min(sourceDataSize, rsl)}
-		else                       {return currentReadPosition >=     sourceDataSize}
-	}
+	public var readSizeLimit: Int?
 	
 	public init(data: Data, readSizeLimit limit: Int? = nil) {
 		sourceData = data
 		sourceDataSize = sourceData.count
+		currentStreamReadPosition = sourceDataSize
 		readSizeLimit = limit
 	}
 	
