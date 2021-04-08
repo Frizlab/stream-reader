@@ -13,6 +13,22 @@ import Foundation
 public protocol StreamReader : class {
 	
 	/**
+	Whether _the underlying stream_’s `EOF` has been reached, either because of
+	`readSizeLimit` constraint, or because the actual end of the stream has been
+	reached. */
+	var streamHasReachedEOF: Bool {get}
+	/**
+	The number of bytes read _from the underlying stream_. Can be greater than
+	`readSizeLimit` iif `readSizeLimit` has been changed to a lower value than
+	`currentStreamReadPosition`. */
+	var currentStreamReadPosition: Int {get}
+	
+	/**
+	Force set `streamHasReachedEOF` to `false`. Call this before calling the read
+	methods to force a read when EOF has been reached. */
+	func clearStreamHasReachedEOF()
+	
+	/**
 	The index of the first byte returned from the stream at the next read, where
 	0 is the first byte of the stream.
 	
@@ -21,8 +37,8 @@ public protocol StreamReader : class {
 	var currentReadPosition: Int {get}
 	
 	/**
-	The maximum total number of bytes allowed to be read _from the underlying
-	stream_, and the maximum value possible for `currentReadPosition`.
+	The maximum value possible for `currentReadPosition` **and** the maximum
+	total number of bytes allowed to be read _from the underlying stream_.
 	
 	If set to `nil`, there are no limits.
 	
@@ -36,8 +52,9 @@ public protocol StreamReader : class {
 	possible for more than `readSizeLimit` to _have been read_ from the stream,
 	or for `currentReadPosition` to be greater than `readSizeLimit`.
 	
-	If this `currentReadPosition` is greater than `readSizeLimit`, the
-	`.notEnoughData` error would be thrown if trying to read more data.
+	When `currentReadPosition` is greater than `readSizeLimit`, trying to read
+	more data will throw the `.notEnoughData` error (or return an empty data if
+	reading less than asked is allowed).
 	
 	This property can be useful because it is usually not possible to add data
 	back to a stream once it has been read from. If you know your stream can have
@@ -53,6 +70,9 @@ public protocol StreamReader : class {
 	memory is guaranteed to be valid and immutable while you’re in the handler.
 	You should not assume the memory you get is bound to a particular type. Use
 	the memory rebinding methods if you need them.
+	
+	Reading a data of size 0 must never fail and always return an empty Data
+	object.
 	
 	- Important: For the memory to stay valid and immutable in the handler, do
 	**NOT** do any stream operation inside the handler.
@@ -151,13 +171,21 @@ public extension StreamReader {
 public extension StreamReader {
 	
 	/**
-	Has EOF been reached?
+	Returns `true` if the underlying stream has reached EOF _and_ the current
+	stream read position is the same (or lower than) the current read position. */
+	var hasReachedEOF: Bool {
+		return streamHasReachedEOF && currentReadPosition >= currentStreamReadPosition
+	}
 	
-	- Important: If the read size limit has not been reached, one byte might be
-	read from the underlying stream when using this method though the
-	`currentReadPosition` of the stream reader will never change. */
-	func hasReachedEOF() throws -> Bool {
-		return try peekData(size: 1, allowReadingLess: true).isEmpty
+	/**
+	Actively check for `EOF` in the stream.
+	
+	- Important: If the read size limit has not been reached and EOF has not been
+	definitely reached, one byte might be read from the underlying stream when
+	using this method, though the `currentReadPosition` of the stream reader will
+	never change. */
+	func checkForEOF() throws -> Bool {
+		return try hasReachedEOF || peekData(size: 1, allowReadingLess: true).isEmpty
 	}
 	
 	func readData(size: Int, allowReadingLess: Bool = false) throws -> Data {

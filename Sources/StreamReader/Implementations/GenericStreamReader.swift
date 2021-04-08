@@ -37,9 +37,30 @@ public final class GenericStreamReader : StreamReader {
 	reading up to given delimiters and there is no space left in the buffer. */
 	public var bufferSizeIncrement: Int
 	
+	/**
+	Whether `EOF` has been reached, either because of `readSizeLimit` constraint,
+	or because end of underlying stream has been reached. See doc of
+	`readSizeLimit` for a few more info. */
+	public private(set) var streamHasReachedEOF = false
+	public private(set) var currentStreamReadPosition: Int
 	public private(set) var currentReadPosition = 0
 	
-	public var readSizeLimit: Int?
+	/**
+	The maximum number of bytes that can be returned by the read methods (when
+	updating read position), and also the number of bytes that can be read from
+	the underlying stream.
+	
+	Changing this to a greater value will force `streamHasReachedEOF` to `false`,
+	but next read might reach `EOF` directly regardless.
+	
+	Changing this to a lower value will not change `streamHasReachedEOF` at all. */
+	public var readSizeLimit: Int? {
+		didSet {
+			if readSizeLimit ?? Int.max > oldValue ?? Int.max {
+				streamHasReachedEOF = false
+			}
+		}
+	}
 	/**
 	The max size to read from the stream with a single read. Set to `nil` for no
 	max.
@@ -66,12 +87,15 @@ public final class GenericStreamReader : StreamReader {
 	- Parameter readSizeLimit: The maximum number of bytes allowed to be read
 	from the stream. Cannot be negative.
 	- Parameter underlyingStreamReadSizeLimit: The max size to read from the
-	stream with a single read. Cannot be negative or 0. */
+	stream with a single read. Cannot be negative. If 0, the reader is
+	effectively forbidden from reading the underlying stream. If a read operation
+	is done that would require reading from the stream (not enough data in the
+	buffer), the `streamReadForbidden` error is thrown. */
 	public init(stream: GenericReadStream, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, readSizeLimit limit: Int? = nil, underlyingStreamReadSizeLimit streamReadSizeLimit: Int? = nil) {
 		assert(size > 0)
 		assert(sizeIncrement > 0)
 		assert(limit == nil || limit! >= 0)
-		assert(streamReadSizeLimit == nil || streamReadSizeLimit! > 0)
+		assert(streamReadSizeLimit == nil || streamReadSizeLimit! >= 0)
 		
 		sourceStream = stream
 		
@@ -83,7 +107,7 @@ public final class GenericStreamReader : StreamReader {
 		bufferStartPos = 0
 		bufferValidLength = 0
 		
-		totalReadBytesCount = 0
+		currentStreamReadPosition = 0
 		
 		readSizeLimit = limit
 		underlyingStreamReadSizeLimit = streamReadSizeLimit
@@ -94,14 +118,43 @@ public final class GenericStreamReader : StreamReader {
 		bufferSize = 0
 	}
 	
+	public func clearStreamHasReachedEOF() {
+		streamHasReachedEOF = false
+	}
+	
+	/**
+	Reads `size` bytes from the underlying stream into the internal buffer and
+	returns the number of bytes read.
+	
+	The `readSizeLimit` and `underlyingStreamReadSizeLimit` variables are
+	respected when using this method.
+	
+	- Important: If the buffer is big enough, might read _more_ bytes than asked.
+	Can also read less (if the end of the stream is reached, or if only one read
+	is allowed and read returned less than asked).
+	
+	- Parameter size: The number of bytes you want the buffer to be filled with
+	from the stream.
+	- Parameter allowMoreThanOneRead: If `true`, the method will read from the
+	stream until the asked size is read or the end of stream is reached.
+	- Returns: The number of bytes acutally read from the stream. */
+	public func readStreamInBuffer(size: Int, allowMoreThanOneRead: Bool = false) throws -> Int {
+		let previousBufferValidLenth = bufferValidLength
+		_ = try readDataNoCurrentPosIncrement(size: (bufferValidLength + size), readContraints: allowMoreThanOneRead ? .readUntilSizeOrStreamEnd : .readFromStreamMaxOnce)
+		let ret = (bufferValidLength - previousBufferValidLenth)
+		assert(ret >= 0, "INTERNAL LOGIC ERROR")
+		return ret
+	}
+	
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
 		let ret = try readDataNoCurrentPosIncrement(size: size, readContraints: allowReadingLess ? .readUntilSizeOrStreamEnd : .getExactSize)
+		assert(ret.count <= bufferValidLength, "INTERNAL LOGIC ERROR")
+		assert(ret.count <= size, "INTERNAL LOGIC ERROR")
 		if updateReadPosition {
 			currentReadPosition += ret.count
 			bufferValidLength -= ret.count
 			bufferStartPos += ret.count
 		}
-		assert(ret.count <= size, "INTERNAL ERROR")
 		return try handler(ret)
 	}
 	
@@ -178,9 +231,6 @@ public final class GenericStreamReader : StreamReader {
 	private var bufferStartPos: Int
 	private var bufferValidLength: Int
 	
-	/** The total number of bytes read from the source stream. */
-	private var totalReadBytesCount = 0
-	
 	private enum ReadContraints {
 		case getExactSize
 		case readUntilSizeOrStreamEnd
@@ -192,14 +242,25 @@ public final class GenericStreamReader : StreamReader {
 	}
 	
 	private func readDataNoCurrentPosIncrement(size: Int, readContraints: ReadContraints) throws -> UnsafeRawBufferPointer {
+		assert(size >= 0)
+		/* If we want to read 0 bytes, whether we’ve reached EOF or we are allowed
+		 * to read more bytes, we can return directly an empty buffer. */
+		guard size > 0 else {return UnsafeRawBufferPointer(start: nil, count: 0)}
+		/* We check reading the given size is allowed. */
 		let allowedToBeRead = readSizeLimit.flatMap{ $0 - currentReadPosition }
 		if let allowedToBeRead = allowedToBeRead, allowedToBeRead < size {
 			guard readContraints.allowReadingLess else {
 				throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)
 			}
 			if allowedToBeRead <= 0 {
-				return UnsafeRawBufferPointer(start: nil, count: 0)
+				streamHasReachedEOF = true
 			}
+		}
+		/* If we have reached EOF (not of the stream, the one of the reader), we
+		 * know there is nothing more to return. */
+		guard !hasReachedEOF else {
+			if readContraints.allowReadingLess {return UnsafeRawBufferPointer(start: nil, count: 0)}
+			else                               {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)}
 		}
 		assert(allowedToBeRead == nil || allowedToBeRead! >= 0)
 		
@@ -287,20 +348,31 @@ public final class GenericStreamReader : StreamReader {
 		
 		let bufferStart = buffer + bufferStartPos
 		if bufferValidLength < size {
-			/* The buffer does not contain enough: we read from the stream.
-			 * As per the specs of the function, we know there is enough space in
-			 * the buffer to hold the required size, and reading the given size
-			 * won’t break the readSizeLimit contract. */
+			/* The buffer does not contain enough: we read from the stream. */
 			repeat {
+				assert(size - bufferValidLength > 0, "INTERNAL LOGIC ERROR")
+				/* We try and read as much bytes as possible from the stream */
+				let unconstrainedSizeToRead = bufferSize - (bufferStartPos + bufferValidLength)
+				/* But we have to constrain to the size allowed to be read */
+				let sizeAllowedToBeRead: Int
+				if let readSizeLimit = readSizeLimit {sizeAllowedToBeRead = min(readSizeLimit - currentStreamReadPosition, unconstrainedSizeToRead)}
+				else                                 {sizeAllowedToBeRead =                                                unconstrainedSizeToRead}
+				/* And to the underlying stream read size limit */
 				let sizeToRead: Int
-				if let readLimit = underlyingStreamReadSizeLimit {sizeToRead = min(readLimit, size - bufferValidLength)}
-				else                                             {sizeToRead =                size - bufferValidLength}
-				assert(sizeToRead > 0, "INTERNAL LOGIC ERROR")
+				if let readLimit = underlyingStreamReadSizeLimit {sizeToRead = min(readLimit, sizeAllowedToBeRead)}
+				else                                             {sizeToRead =                sizeAllowedToBeRead}
 				assert(sizeToRead <= bufferSize - (bufferStartPos + bufferValidLength), "INTERNAL LOGIC ERROR")
+				
+				guard sizeToRead > 0 else {
+					assert(underlyingStreamReadSizeLimit! == 0, "INTERNAL LOGIC ERROR")
+					throw StreamReaderError.streamReadForbidden
+				}
+				
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
 				bufferValidLength += sizeRead
-				totalReadBytesCount += sizeRead
-				assert(readSizeLimit == nil || totalReadBytesCount <= readSizeLimit!)
+				currentStreamReadPosition += sizeRead
+				if sizeRead == 0 {streamHasReachedEOF = true}
+				assert(readSizeLimit == nil || currentStreamReadPosition <= readSizeLimit!)
 				
 				if readContraints == .readFromStreamMaxOnce {break}
 				guard sizeRead > 0 else {

@@ -13,19 +13,37 @@ public final class DataReader : StreamReader {
 	
 	public let sourceData: Data
 	public let sourceDataSize: Int
+	
 	public private(set) var currentReadPosition = 0
+	
+	/**
+	The whole data is in memory: the “underlying stream” (the `sourceData`) is
+	_always_ read to `EOF`. */
+	public let streamHasReachedEOF = true
+	/** Always the size of the source data. */
+	public let currentStreamReadPosition: Int
 	
 	public var readSizeLimit: Int?
 	
 	public init(data: Data, readSizeLimit limit: Int? = nil) {
 		sourceData = data
 		sourceDataSize = sourceData.count
+		currentStreamReadPosition = sourceDataSize
 		readSizeLimit = limit
+	}
+	
+	public func clearStreamHasReachedEOF() {
+		/* nop: the data reader has always reached EOF because all of the data is
+		 *      in memory at all time. */
 	}
 	
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
 		assert(size >= 0, "Cannot read a negative number of bytes!")
 		assert(currentReadPosition <= sourceDataSize, "INTERNAL ERROR")
+		
+		guard size > 0 else {
+			return try handler(UnsafeRawBufferPointer(start: nil, count: 0))
+		}
 		
 		if !allowReadingLess {
 			if let maxRead = readSizeLimit {

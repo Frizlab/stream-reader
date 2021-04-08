@@ -3,7 +3,6 @@
  * StreamReader
  *
  * Created by François Lamboley on 2021/3/27.
- * Copyright © 2021 frizlab. All rights reserved.
  */
 
 import Foundation

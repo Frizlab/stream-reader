@@ -23,6 +23,12 @@ public enum StreamReaderError : Error {
 	`readData(upToDelimiters:...)` method. */
 	case delimitersNotFound
 	
+	/**
+	When a read operation is done in a `GenericStreamReader` that would require
+	reading from the underlying stream (not enough data in the buffer), but the
+	`underlyingStreamReadSizeLimit` is 0, this error is thrown. */
+	case streamReadForbidden
+	
 	/** An error occurred reading the stream. */
 	case streamReadError(streamError: Error?)
 	
