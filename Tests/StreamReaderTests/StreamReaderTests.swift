@@ -305,6 +305,35 @@ class StreamReaderTests : XCTestCase {
 		try checkReadLine(reader: reader, expectedLine: "hello", expectedSeparator: "")
 	}
 	
+	/* From testReadLine3, but closer to root cause. */
+	func testReadUpToWhenUnderlyingStreamHasEOF() throws {
+		let str = "hello"
+		let data = Data(str.utf8)
+		let s = InputStream(data: data)
+		s.open(); defer {s.close()}
+		let reader = InputStreamReader(stream: s, bufferSize: 1024, bufferSizeIncrement: 1024, underlyingStreamReadSizeLimit: 0)
+		try reader.readStreamInBuffer(size: data.count + 1, allowMoreThanOneRead: true, bypassUnderlyingStreamReadSizeLimit: true)
+		XCTAssertFalse(reader.hasReachedEOF)
+		XCTAssertTrue(reader.streamHasReachedEOF)
+		XCTAssertEqual(reader.currentStreamReadPosition, 5)
+		XCTAssertEqual(try reader.readData(upTo: [], matchingMode: .anyMatchWins, includeDelimiter: false).data, data)
+	}
+	
+	/* A variant of testReadUpToWhenUnderlyingStreamHasEOF, but when EOF is
+	 * because of read limit. */
+	func testReadUpToWhenUnderlyingStreamHasEOFVirtually() throws {
+		let str = "hello!"
+		let data = Data(str.utf8)
+		let s = InputStream(data: data)
+		s.open(); defer {s.close()}
+		let reader = InputStreamReader(stream: s, bufferSize: 1024, bufferSizeIncrement: 1024, readSizeLimit: 5, underlyingStreamReadSizeLimit: 0)
+		try reader.readStreamInBuffer(size: data.count + 1, allowMoreThanOneRead: true, bypassUnderlyingStreamReadSizeLimit: true)
+		XCTAssertFalse(reader.hasReachedEOF)
+		XCTAssertTrue(reader.streamHasReachedEOF)
+		XCTAssertEqual(reader.currentStreamReadPosition, 5)
+		XCTAssertEqual(try reader.readData(upTo: [], matchingMode: .anyMatchWins, includeDelimiter: false).data, data)
+	}
+	
 	func testReadUnderlyingStream() throws {
 		let data = Data(hexEncoded: "01 23 45 67 89")!
 		
