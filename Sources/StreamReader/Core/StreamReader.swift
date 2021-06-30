@@ -10,7 +10,7 @@ import Foundation
 
 
 
-public protocol StreamReader : class {
+public protocol StreamReader : AnyObject {
 	
 	/**
 	Whether _the underlying stream_’s `EOF` has been reached, either because of
