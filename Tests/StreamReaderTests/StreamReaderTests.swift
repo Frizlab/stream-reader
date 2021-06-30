@@ -293,6 +293,18 @@ class StreamReaderTests : XCTestCase {
 		}
 	}
 	
+	func testReadLine3() throws {
+		let str = "hello"
+		let data = Data(str.utf8)
+		let s = InputStream(data: data)
+		s.open(); defer {s.close()}
+		let reader = InputStreamReader(stream: s, bufferSize: 1024, bufferSizeIncrement: 1024, underlyingStreamReadSizeLimit: 0)
+		try reader.readStreamInBuffer(size: data.count + 1, allowMoreThanOneRead: true, bypassUnderlyingStreamReadSizeLimit: true)
+		XCTAssertFalse(reader.hasReachedEOF)
+		XCTAssertTrue(reader.streamHasReachedEOF)
+		try checkReadLine(reader: reader, expectedLine: "hello", expectedSeparator: "")
+	}
+	
 	func testReadUnderlyingStream() throws {
 		let data = Data(hexEncoded: "01 23 45 67 89")!
 		
