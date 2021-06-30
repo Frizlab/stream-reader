@@ -142,6 +142,7 @@ public final class GenericStreamReader : StreamReader {
 	`underlyingStreamReadSizeLimit` to `nil` before reading from the stream and
 	set it back to whatever its value was after the read.
 	- Returns: The number of bytes acutally read from the stream. */
+	@discardableResult
 	public func readStreamInBuffer(size: Int, allowMoreThanOneRead: Bool = false, bypassUnderlyingStreamReadSizeLimit: Bool = false) throws -> Int {
 		let previousUnderlyingStreamReadSizeLimit = underlyingStreamReadSizeLimit
 		if bypassUnderlyingStreamReadSizeLimit {underlyingStreamReadSizeLimit = nil}
