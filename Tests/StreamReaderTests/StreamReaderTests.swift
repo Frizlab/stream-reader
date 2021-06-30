@@ -324,10 +324,11 @@ class StreamReaderTests : XCTestCase {
 	func testReadUpToWhenUnderlyingStreamHasEOFVirtually() throws {
 		let str = "hello!"
 		let data = Data(str.utf8)
+		let limit = data.count - 1
 		let s = InputStream(data: data)
 		s.open(); defer {s.close()}
-		let reader = InputStreamReader(stream: s, bufferSize: 1024, bufferSizeIncrement: 1024, readSizeLimit: 5, underlyingStreamReadSizeLimit: 0)
-		try reader.readStreamInBuffer(size: data.count + 1, allowMoreThanOneRead: true, bypassUnderlyingStreamReadSizeLimit: true)
+		let reader = InputStreamReader(stream: s, bufferSize: 1024, bufferSizeIncrement: 1024, readSizeLimit: limit, underlyingStreamReadSizeLimit: 0)
+		try reader.readStreamInBuffer(size: limit + 1, allowMoreThanOneRead: true, bypassUnderlyingStreamReadSizeLimit: true)
 		XCTAssertFalse(reader.hasReachedEOF)
 		XCTAssertTrue(reader.streamHasReachedEOF)
 		XCTAssertEqual(reader.currentStreamReadPosition, 5)
