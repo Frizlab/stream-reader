@@ -332,7 +332,7 @@ class StreamReaderTests : XCTestCase {
 		XCTAssertFalse(reader.hasReachedEOF)
 		XCTAssertTrue(reader.streamHasReachedEOF)
 		XCTAssertEqual(reader.currentStreamReadPosition, 5)
-		XCTAssertEqual(try reader.readData(upTo: [], matchingMode: .anyMatchWins, includeDelimiter: false).data, data)
+		XCTAssertEqual(try reader.readData(upTo: [], matchingMode: .anyMatchWins, includeDelimiter: false).data, data[data.startIndex..<data.index(before: data.endIndex)])
 	}
 	
 	func testReadUnderlyingStream() throws {
