@@ -374,7 +374,11 @@ public final class GenericStreamReader : StreamReader {
 				
 				guard sizeToRead > 0 else {
 					assert(underlyingStreamReadSizeLimit! == 0, "INTERNAL LOGIC ERROR")
-					throw StreamReaderError.streamReadForbidden
+					if streamHasReachedEOF {
+						return UnsafeRawBufferPointer(start: nil, count: 0)
+					} else {
+						throw StreamReaderError.streamReadForbidden
+					}
 				}
 				
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
