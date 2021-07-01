@@ -384,8 +384,11 @@ public final class GenericStreamReader : StreamReader {
 				let sizeRead = try sourceStream.read(bufferStart + bufferValidLength, maxLength: sizeToRead)
 				bufferValidLength += sizeRead
 				currentStreamReadPosition += sizeRead
-				if sizeRead == 0 {streamHasReachedEOF = true}
 				assert(readSizeLimit == nil || currentStreamReadPosition <= readSizeLimit!)
+				
+				if sizeRead == 0 || currentStreamReadPosition == readSizeLimit {
+					streamHasReachedEOF = true
+				}
 				
 				if readContraints == .readFromStreamMaxOnce {break}
 				guard sizeRead > 0 else {
