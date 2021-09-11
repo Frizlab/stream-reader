@@ -9,7 +9,7 @@ let package = Package(
 		.library(name: "StreamReader", targets: ["StreamReader"])
 	],
 	dependencies: [
-		.package(url: "https://github.com/apple/swift-system.git", from: "0.0.1")
+		.package(url: "https://github.com/apple/swift-system.git", from: "1.0.0")
 	],
 	targets: [
 		.target(name: "StreamReader", dependencies: [.product(name: "SystemPackage", package: "swift-system")]),

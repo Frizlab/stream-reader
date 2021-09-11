@@ -6,8 +6,8 @@
         "repositoryURL": "https://github.com/apple/swift-system.git",
         "state": {
           "branch": null,
-          "revision": "8ffa04c0a0592e6f4f9c30926dedd8fa1c5371f9",
-          "version": "0.0.1"
+          "revision": "ce8b4910730114fa1eb46967a031a04f7594f42d",
+          "version": "1.0.0"
         }
       }
     ]
