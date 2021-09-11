@@ -1,9 +1,9 @@
 /*
- * StreamReaderTests.swift
- * StreamReader
- *
- * Created by François Lamboley on 18/12/2016.
- */
+ * StreamReaderTests.swift
+ * StreamReader
+ *
+ * Created by François Lamboley on 18/12/2016.
+ */
 
 import Foundation
 import XCTest
@@ -66,7 +66,7 @@ class StreamReaderTests : XCTestCase {
 			XCTAssertEqual(rd, data[0..<4])
 			XCTAssertFalse(try reader.checkForEOF())
 			/* The reader is not at EOF, but underlying stream must be because no
-			 * match for given delimiters, so whole stream must be read. */
+			 * match for given delimiters, so whole stream must be read. */
 			XCTAssertTrue(reader.streamHasReachedEOF)
 		}
 	}
@@ -76,7 +76,7 @@ class StreamReaderTests : XCTestCase {
 			XCTAssertThrowsError(try reader.peekData(upTo: [Data(hexEncoded: "45 54")!, Data(hexEncoded: "89 75 45")!], matchingMode: .longestDataWins, includeDelimiter: true))
 			XCTAssertFalse(try reader.checkForEOF())
 			/* The reader is not at EOF, but underlying stream must be because no
-			 * match for given delimiters, so whole stream must be read. */
+			 * match for given delimiters, so whole stream must be read. */
 			XCTAssertTrue(reader.streamHasReachedEOF)
 		}
 	}
@@ -320,7 +320,7 @@ class StreamReaderTests : XCTestCase {
 	}
 	
 	/* A variant of testReadUpToWhenUnderlyingStreamHasEOF, but when EOF is
-	 * because of read limit. */
+	 * because of read limit. */
 	func testReadUpToWhenUnderlyingStreamHasEOFVirtually() throws {
 		let str = "hello!"
 		let data = Data(str.utf8)

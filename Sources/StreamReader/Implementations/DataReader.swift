@@ -1,9 +1,9 @@
 /*
- * DataReader.swift
- * StreamReader
- *
- * Created by François Lamboley on 20/08/2017.
- */
+ * DataReader.swift
+ * StreamReader
+ *
+ * Created by François Lamboley on 20/08/2017.
+ */
 
 import Foundation
 
@@ -17,8 +17,8 @@ public final class DataReader : StreamReader {
 	public private(set) var currentReadPosition = 0
 	
 	/**
-	The whole data is in memory: the “underlying stream” (the `sourceData`) is
-	_always_ read to `EOF`. */
+	 The whole data is in memory: the “underlying stream” (the `sourceData`) is
+	 _always_ read to `EOF`. */
 	public let streamHasReachedEOF = true
 	/** Always the size of the source data. */
 	public let currentStreamReadPosition: Int
@@ -34,7 +34,7 @@ public final class DataReader : StreamReader {
 	
 	public func clearStreamHasReachedEOF() {
 		/* nop: the data reader has always reached EOF because all of the data is
-		 *      in memory at all time. */
+		 *      in memory at all time. */
 	}
 	
 	public func readData<T>(size: Int, allowReadingLess: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer) throws -> T) throws -> T {
@@ -55,10 +55,10 @@ public final class DataReader : StreamReader {
 		return try sourceData.withUnsafeBytes{ bytes in
 			let sizeToRead = sizeConstrainedToRemainingAllowedSizeToRead(size)
 			/* Only possibility for bytes.baseAddress to be nil is if data is empty
-			 * which makes currentReadPosition and size to read being different
-			 * than 0 theoratically impossible.
-			 * This assert validates the flatMap we have in the raw buffer pointer
-			 * creation on next line. */
+			 * which makes currentReadPosition and size to read being different
+			 * than 0 theoratically impossible.
+			 * This assert validates the flatMap we have in the raw buffer pointer
+			 * creation on next line. */
 			assert(bytes.baseAddress != nil || (currentReadPosition == 0 && sizeToRead == 0), "INTERNAL LOGIC ERROR")
 			let ret = UnsafeRawBufferPointer(start: bytes.baseAddress.flatMap{ $0 + currentReadPosition }, count: sizeToRead)
 			if updateReadPosition {currentReadPosition += sizeToRead}
@@ -71,9 +71,9 @@ public final class DataReader : StreamReader {
 		
 		if delimiters.count == 0 || (!failIfNotFound && delimiters.count == 1 && delimiters[0] == Data()) {
 			/* When there are no delimiters or if there is only one delimiter which
-			 * is empty and we do not fail if we do not find the delimiter, we
-			 * simply read the stream to the end.
-			 * There may be more optimization possible, but we don’t care for now. */
+			 * is empty and we do not fail if we do not find the delimiter, we
+			 * simply read the stream to the end.
+			 * There may be more optimization possible, but we don’t care for now. */
 			return try readData(size: sizeToEnd, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, Data()) })
 		}
 		
@@ -88,8 +88,8 @@ public final class DataReader : StreamReader {
 				return try readData(size: match.length, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}
 			/* matchDelimiters did not find an indisputable match. However, we have
-			 * fed all the data we have to it. We cannot find more matches! We
-			 * simply return the best match we got. */
+			 * fed all the data we have to it. We cannot find more matches! We
+			 * simply return the best match we got. */
 			if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
 				return try readData(size: match.length, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}

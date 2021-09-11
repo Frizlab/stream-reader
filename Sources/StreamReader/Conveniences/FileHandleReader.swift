@@ -1,9 +1,9 @@
 /*
- * FileHandleReader.swift
- * StreamReader
- *
- * Created by François Lamboley on 20/08/2017.
- */
+ * FileHandleReader.swift
+ * StreamReader
+ *
+ * Created by François Lamboley on 20/08/2017.
+ */
 
 import Foundation
 
@@ -17,9 +17,9 @@ extension FileHandle : GenericReadStream {
 			data = try read(upToCount: len) ?? Data()
 		} else {
 			/* This might throw (an ObjC exception). Sadly these exception are not
-			 * catchable at all in “pure” Swift, so we’re not catching them… Anyway
-			 * this is a deprecated API, and the more modern version is used when
-			 * available. */
+			 * catchable at all in “pure” Swift, so we’re not catching them… Anyway
+			 * this is a deprecated API, and the more modern version is used when
+			 * available. */
 			data = readData(ofLength: len)
 		}
 		let sizeRead = data.count

@@ -1,9 +1,9 @@
 /*
- * InputStreamReader.swift
- * StreamReader
- *
- * Created by François Lamboley on 20/08/2017.
- */
+ * InputStreamReader.swift
+ * StreamReader
+ *
+ * Created by François Lamboley on 20/08/2017.
+ */
 
 import Foundation
 
