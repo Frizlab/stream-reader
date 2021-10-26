@@ -9,6 +9,9 @@ import Foundation
 
 
 
+/* URLSessionStreamTask is not available (yet?) in public CoreFoundation. */
+#if !canImport(FoundationNetworking)
+
 @available(macOS 10.11, *)
 extension URLSessionStreamTask : GenericReadStream {
 	
@@ -31,3 +34,5 @@ extension URLSessionStreamTask : GenericReadStream {
 }
 
 public typealias URLSessionStreamTaskReader = GenericStreamReader
+
+#endif
