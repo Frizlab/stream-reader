@@ -12,6 +12,9 @@ import XCTest
 
 
 
+/* URLSessionStreamTask is not available (yet?) in public CoreFoundation. */
+#if !canImport(FoundationNetworking)
+
 class URLStreamReaderTests : XCTestCase {
 	
 	func testReadFromURLStream() throws {
@@ -117,3 +120,5 @@ class URLStreamReaderTests : XCTestCase {
 	}
 	
 }
+
+#endif
