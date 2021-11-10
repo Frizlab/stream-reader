@@ -30,3 +30,5 @@ public enum StreamReaderError : Error {
 	case streamReadError(streamError: Error?)
 	
 }
+
+typealias Err = StreamReaderError

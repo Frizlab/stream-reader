@@ -15,7 +15,7 @@ extension InputStream : GenericReadStream {
 		let boundBuffer = buffer.bindMemory(to: UInt8.self, capacity: len)
 		
 		let sizeRead = read(boundBuffer, maxLength: len)
-		guard sizeRead >= 0 else {throw StreamReaderError.streamReadError(streamError: streamError)}
+		guard sizeRead >= 0 else {throw Err.streamReadError(streamError: streamError)}
 		
 		return sizeRead
 	}

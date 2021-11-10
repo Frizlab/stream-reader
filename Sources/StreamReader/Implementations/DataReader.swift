@@ -45,9 +45,9 @@ public final class DataReader : StreamReader {
 		
 		if !allowReadingLess {
 			if let maxRead = readSizeLimit {
-				guard currentReadPosition + size <= maxRead else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)}
+				guard currentReadPosition + size <= maxRead else {throw Err.notEnoughData(wouldReachReadSizeLimit: true)}
 			}
-			guard (sourceDataSize - currentReadPosition) >= size else {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
+			guard (sourceDataSize - currentReadPosition) >= size else {throw Err.notEnoughData(wouldReachReadSizeLimit: false)}
 		}
 		
 		return try sourceData.withUnsafeBytes{ bytes in
@@ -90,7 +90,7 @@ public final class DataReader : StreamReader {
 				return try readData(size: match.length, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}
 			if failIfNotFound {
-				throw StreamReaderError.delimitersNotFound
+				throw Err.delimitersNotFound
 			} else {
 				return try readData(size: sizeToEnd, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, Data()) })
 			}

@@ -197,7 +197,7 @@ public final class GenericStreamReader : StreamReader {
 		}
 		
 		guard delimiters.isEmpty || !failIfNotFound else {
-			throw StreamReaderError.delimitersNotFound
+			throw Err.delimitersNotFound
 		}
 		
 		/* No match, no error on no match, we return the whole data. */
@@ -246,7 +246,7 @@ public final class GenericStreamReader : StreamReader {
 		let allowedToBeRead = readSizeLimit.flatMap{ $0 - currentReadPosition }
 		if let allowedToBeRead = allowedToBeRead, allowedToBeRead < size {
 			guard readContraints.allowReadingLess else {
-				throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)
+				throw Err.notEnoughData(wouldReachReadSizeLimit: true)
 			}
 			if allowedToBeRead <= 0 {
 				streamHasReachedEOF = true
@@ -255,7 +255,7 @@ public final class GenericStreamReader : StreamReader {
 		/* If we have reached EOF (not of the stream, the one of the reader), we know there is nothing more to return. */
 		guard !hasReachedEOF else {
 			if readContraints.allowReadingLess {return UnsafeRawBufferPointer(start: nil, count: 0)}
-			else                               {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: true)}
+			else                               {throw Err.notEnoughData(wouldReachReadSizeLimit: true)}
 		}
 		assert(allowedToBeRead == nil || allowedToBeRead! >= 0)
 		
@@ -358,7 +358,7 @@ public final class GenericStreamReader : StreamReader {
 					if streamHasReachedEOF {
 						return UnsafeRawBufferPointer(start: nil, count: 0)
 					} else {
-						throw StreamReaderError.streamReadForbidden
+						throw Err.streamReadForbidden
 					}
 				}
 				
@@ -374,7 +374,7 @@ public final class GenericStreamReader : StreamReader {
 				if readContraints == .readFromStreamMaxOnce {break}
 				guard sizeRead > 0 else {
 					if readContraints.allowReadingLess {break}
-					else                               {throw StreamReaderError.notEnoughData(wouldReachReadSizeLimit: false)}
+					else                               {throw Err.notEnoughData(wouldReachReadSizeLimit: false)}
 				}
 			} while bufferValidLength < size /* Reading until we have enough data in the buffer. */
 		}
