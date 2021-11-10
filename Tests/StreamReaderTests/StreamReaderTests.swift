@@ -277,11 +277,11 @@ class StreamReaderTests : XCTestCase {
 	func testReadLine2() throws {
 		struct DataToStrError : Error {}
 		let str = """
-		aa
-		77y
-		d
-		d
-		"""
+			aa
+			77y
+			d
+			d
+			"""
 		try runTest(string: str, bufferSizes: Array(1...4), bufferSizeIncrements: Array(1...5), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
 			var lines = [String]()
 			while let (line, _) = try reader.readLine() {
@@ -322,8 +322,7 @@ class StreamReaderTests : XCTestCase {
 		XCTAssertEqual(try reader.readData(upTo: [], matchingMode: .anyMatchWins, includeDelimiter: false).data, data)
 	}
 	
-	/* A variant of testReadUpToWhenUnderlyingStreamHasEOF, but when EOF is
-	 * because of read limit. */
+	/* A variant of testReadUpToWhenUnderlyingStreamHasEOF, but when EOF is because of read limit. */
 	func testReadUpToWhenUnderlyingStreamHasEOFVirtually() throws {
 		let str = "hello!"
 		let data = Data(str.utf8)

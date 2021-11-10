@@ -2,7 +2,6 @@
 import PackageDescription
 
 
-
 let package = Package(
 	name: "stream-reader",
 	products: [

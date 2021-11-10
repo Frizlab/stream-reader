@@ -16,10 +16,9 @@ extension FileHandle : GenericReadStream {
 		if #available(macOS 10.15.4, iOS 13.4, tvOS 13.4, watchOS 6.2, *) {
 			data = try read(upToCount: len) ?? Data()
 		} else {
-			/* This might throw (an ObjC exception). Sadly these exception are not
-			 * catchable at all in “pure” Swift, so we’re not catching them… Anyway
-			 * this is a deprecated API, and the more modern version is used when
-			 * available. */
+			/* This might throw (an ObjC exception).
+			 * Sadly these exception are not catchable at all in “pure” Swift, so we’re not catching them…
+			 * Anyway this is a deprecated API, and the more modern version is used when available. */
 			data = readData(ofLength: len)
 		}
 		let sizeRead = data.count
