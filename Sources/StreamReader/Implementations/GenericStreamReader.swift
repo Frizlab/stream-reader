@@ -45,11 +45,11 @@ public final class GenericStreamReader : StreamReader {
 	public private(set) var currentReadPosition = 0
 	
 	/**
-	 The maximum number of bytes that can be returned by the read methods (when updating read position), and
-	 also the number of bytes that can be read from the underlying stream.
+	 The maximum number of bytes that can be returned by the read methods (when updating read position),
+	  and also the number of bytes that can be read from the underlying stream.
 	 
-	 Changing this to a greater value will force ``streamHasReachedEOF`` to `false`, but
-	 next read might reach `EOF` directly regardless.
+	 Changing this to a greater value will force ``streamHasReachedEOF`` to `false`,
+	  but next read might reach `EOF` directly regardless.
 	 
 	 Changing this to a lower value will not change ``streamHasReachedEOF`` at all. */
 	public var readSizeLimit: Int? {
@@ -64,11 +64,11 @@ public final class GenericStreamReader : StreamReader {
 	 Set to `nil` for no max.
 	 
 	 Changing this can be useful for instance for a FileHandle stream because FileHandle will read _exactly_ the size it is asked to,
-	 blocking until the number of bytes required are retrieved or the end of the file is reached.
+	  blocking until the number of bytes required are retrieved or the end of the file is reached.
 	 
-	 By default this stream reader reads the maximum size it can in its internal buffer, so
-	 reading from stdin via a FileHandle will block until the buffer is full,
-	 unless this property is set to a low value (`1` for instance). */
+	 By default this stream reader reads the maximum size it can in its internal buffer,
+	  so reading from stdin via a FileHandle will block until the buffer is full,
+	  unless this property is set to a low value (`1` for instance). */
 	public var underlyingStreamReadSizeLimit: Int?
 	
 	/**
@@ -127,8 +127,8 @@ public final class GenericStreamReader : StreamReader {
 	 
 	 - Parameter size: The number of bytes you want the buffer to be filled with from the stream.
 	 - Parameter allowMoreThanOneRead: If `true`, the method will read from the stream until the asked size is read or the end of stream is reached.
-	 - Parameter bypassUnderlyingStreamReadSizeLimit: A simple convenience to set ``underlyingStreamReadSizeLimit`` to `nil` before reading from the stream and
-	 set it back to whatever its value was after the read.
+	 - Parameter bypassUnderlyingStreamReadSizeLimit: A simple convenience to set ``underlyingStreamReadSizeLimit`` to `nil` before reading from the stream
+	  and set it back to whatever its value was after the read.
 	 - Returns: The number of bytes acutally read from the stream. */
 	@discardableResult
 	public func readStreamInBuffer(size: Int, allowMoreThanOneRead: Bool = false, bypassUnderlyingStreamReadSizeLimit: Bool = false) throws -> Int {
@@ -217,8 +217,7 @@ public final class GenericStreamReader : StreamReader {
 	   MARK: - Private
 	   *************** */
 	
-	/* Note: We choose not to use UnsafeMutableRawBufferPointer as we’ll do many pointer arithmetic, it wouldn’t be very practical
-	 *       (mostly because UnsafeMutableRawBufferPointer’s baseAdress is optional). */
+	/* Note: We choose not to use UnsafeMutableRawBufferPointer as we’ll do many pointer arithmetic, it wouldn’t be very practical (mostly because UnsafeMutableRawBufferPointer’s baseAdress is optional). */
 	
 	/**
 	 The current buffer in use.

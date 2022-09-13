@@ -24,7 +24,7 @@ extension Data {
 	 ```
 	 
 	 Any non hex chars (everything but `[0-9a-fA-F]`) is removed from the input:
-	 `Data(hexEncoded: "AB CD-12") == Data(hexEncoded: "ABCD12")`. */
+	  `Data(hexEncoded: "AB CD-12") == Data(hexEncoded: "ABCD12")`. */
 	init?(hexEncoded str: String) {
 		let allowedCharset = CharacterSet(charactersIn: "0123456789abcdefABCDEF")
 		let str = String(str.filter{ $0.unicodeScalars.count == 1 && allowedCharset.contains($0.unicodeScalars.first!) })
