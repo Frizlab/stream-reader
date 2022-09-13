@@ -14,8 +14,8 @@ public protocol StreamReader : AnyObject {
 	
 	/**
 	 Whether _the underlying stream_’s `EOF` has been reached,
-	 either because of `readSizeLimit` constraint,
-	 or because the actual end of the stream has been reached. */
+	  either because of `readSizeLimit` constraint,
+	  or because the actual end of the stream has been reached. */
 	var streamHasReachedEOF: Bool {get}
 	/**
 	 The number of bytes read _from the underlying stream_.
@@ -39,25 +39,25 @@ public protocol StreamReader : AnyObject {
 	 If set to `nil`, there are no limits.
 	 
 	 You get the following guarantees:
-	 - No more than `readSizeLimit` bytes will be read by the reader from the underlying stream;
-	 - No read from the reader will set the `currentReadPosition` to be greater than `readSizeLimit`.
+	  - No more than `readSizeLimit` bytes will be read by the reader from the underlying stream;
+	  - No read from the reader will set the `currentReadPosition` to be greater than `readSizeLimit`.
 	 
 	 It is however possible to change `readSizeLimit` at any time, which makes it possible for
-	 more than `readSizeLimit` to _have been read_ from the stream, or for `currentReadPosition` to be greater than `readSizeLimit`.
+	  more than `readSizeLimit` to _have been read_ from the stream, or for `currentReadPosition` to be greater than `readSizeLimit`.
 	 
 	 When `currentReadPosition` is greater than `readSizeLimit`, trying to read more data will throw the `.notEnoughData` error
-	 (or return an empty data if reading less than asked is allowed).
+	  (or return an empty data if reading less than asked is allowed).
 	 
 	 This property can be useful because it is usually not possible to add data back to a stream once it has been read from.
 	 If you know your stream can have more data that what you’re interested in and want to avoid the reader reading too much and
-	 thus rendering the stream unusable for other clients, you should use this property. */
+	  thus rendering the stream unusable for other clients, you should use this property. */
 	var readSizeLimit: Int? {get set}
 	
 	/**
 	 Read `size` bytes from the stream. The size must be >= 0.
 	 
 	 You get access to the read data through an unsafe raw buffer pointer whose memory is guaranteed to be valid and
-	 immutable while you’re in the handler.
+	  immutable while you’re in the handler.
 	 You should not assume the memory you get is bound to a particular type.
 	 Use the memory rebinding methods if you need them.
 	 
@@ -80,10 +80,10 @@ public protocol StreamReader : AnyObject {
 	 An empty delimiter matches nothing.
 	 
 	 If the delimiters list is empty, the data is read to the end of the stream (or the stream size limit) and
-	 the returned `delimiterThatMatched` will be an empty `Data` object.
+	  the returned `delimiterThatMatched` will be an empty `Data` object.
 	 
 	 If none of the given delimiter matches, the `delimitersNotFound` error is thrown, unless `failIfNotFound` is `false`
-	 (in which case the end of the stream is returned and `delimiterThatMatched` will be set to an empty `Data` object).
+	  (in which case the end of the stream is returned and `delimiterThatMatched` will be set to an empty `Data` object).
 	 
 	 The following calls are equivalent:
 	 ```
@@ -97,7 +97,7 @@ public protocol StreamReader : AnyObject {
 	 Some mode may have to read and put the whole stream in an internal cache before being able to return the data you want.
 	 
 	 You get access to the read data through an unsafe raw buffer pointer whose memory is guaranteed to be valid and
-	 immutable while you’re in the handler.
+	  immutable while you’re in the handler.
 	 You should not assume the memory you get is bound to a particular type.
 	 Use the memory rebinding methods if you need them.
 	 
@@ -154,8 +154,8 @@ public extension StreamReader {
 	 Actively check for `EOF` in the stream.
 	 
 	 - Important: If the read size limit has not been reached and EOF has not been definitely reached,
-	 one byte might be read from the underlying stream when using this method,
-	 though the `currentReadPosition` of the stream reader will never change. */
+	  one byte might be read from the underlying stream when using this method,
+	  though the `currentReadPosition` of the stream reader will never change. */
 	func checkForEOF() throws -> Bool {
 		return try hasReachedEOF || peekData(size: 1, allowReadingLess: true).isEmpty
 	}
@@ -185,8 +185,7 @@ public extension StreamReader {
 	}
 	
 	func readType<Type>() throws -> Type {
-		/* The bind should be ok because StreamReader guarantees the memory to be
-		 * immutable in the closure. */
+		/* The bind should be ok because StreamReader guarantees the memory to be immutable in the closure. */
 		return try readData(size: MemoryLayout<Type>.size, allowReadingLess: false, { bytes in bytes.bindMemory(to: Type.self).baseAddress!.pointee })
 	}
 	
@@ -216,16 +215,16 @@ public extension StreamReader {
 		
 		if !allowWindowsNewLines || !allowLegacyMacOSNewLines || separator == lf || separator.isEmpty {
 			/* If Windows new lines are not allowed,
-			 * or the separator that matched was lf or empty (end of stream),
-			 * or if legacy MacOS new lines are not allowed,
-			 * we can directly return the data we found as there is no ambiguity possible. */
+			 *  or the separator that matched was lf or empty (end of stream),
+			 *  or if legacy MacOS new lines are not allowed,
+			 *  we can directly return the data we found as there is no ambiguity possible. */
 			return (line: line, newLineChars: separator)
 		} else {
 			/* Windows and legacy MacOS new lines are allowed,
-			 * and the separator that matched was not lf. */
+			 *  and the separator that matched was not lf. */
 			
 			/* This assertion is true because to be able to have crlf as a separator,
-			 * the legacy MacOS new lines must be disallowed (see the definition of the separators variable).
+			 *  the legacy MacOS new lines must be disallowed (see the definition of the separators variable).
 			 * If legacy MacOS new lines are not allowed, we cannot be here (see the if). */
 			assert(separator != cr + lf)
 			/* From the assert above, comes the assert below! Because of the if. */
@@ -268,7 +267,7 @@ public enum DelimiterMatchingMode {
 	/**
 	 The lightest match algorithm (usually).
 	 In the given example, the third delimiter (`"234"`) will match,
-	 because the `StreamReader` will first try to match the delimiters against what it already have in memory.
+	  because the `StreamReader` will first try to match the delimiters against what it already have in memory.
 	 
 	 - Note:
 	 This is true for a `GenericStreamReader`, the way it is implemented.
@@ -297,10 +296,10 @@ public enum DelimiterMatchingMode {
 	 - Important: Use this matching mode with care!
 	 It might have to read all of the stream (and thus fill the memory with it) to be able to correctly determine the first match.
 	 Actually, the only case where the result can be returned safely before reaching the end of the data is when the first delimiter matches,
-	 or when all the delimiters have matched…
+	  or when all the delimiters have matched…
 	 
 	 - Note: If you need something like `latestMatchingDelimiterWins` or `shortestMatchingDelimiterWins` you can do it yourself
-	 by using this matching mode and simply sorting your delimiters list before giving it to the function.*/
+	  by using this matching mode and simply sorting your delimiters list before giving it to the function.*/
 	case firstMatchingDelimiterWins
 	
 }

@@ -54,18 +54,15 @@ class URLStreamReaderTests : XCTestCase {
 		XCTAssertThrowsError(try reader.readData(size: 1, allowReadingLess: false))
 	}
 	
-	/* Unsurprisingly, reading from the stream first from the task then from the
-	 * input stream does not work. It has been observed that the InputStream
-	 * retrieved after the read starts reading after an arbitrary number of bytes
-	 * in the stream.
-	 * It makes sense. Probably the stream task has an internal buffer. The first
-	 * read would fill this buffer. Then we ask to convert the task stream to an
-	 * InputStream which would be unaware of this buffer, and thus has its reads
-	 * start after said buffer.
-	 * Another combination we could have checked, but that would probably fail
-	 * too because the stream task and the InputStream seem mostly unaware of
-	 * each other is: getting the stream task, then getting the InputStream from
-	 * it, then reading first from the stream task, then from the InputStream. */
+	/* Unsurprisingly, reading from the stream first from the task then from the input stream does not work.
+	 * It has been observed that the InputStream retrieved after the read starts reading after an arbitrary number of bytes in the stream.
+	 * It makes sense.
+	 * Probably the stream task has an internal buffer.
+	 * The first read would fill this buffer.
+	 * Then we ask to convert the task stream to an InputStream which would be unaware of this buffer,
+	 *  and thus has its reads start after said buffer.
+	 * Another combination we could have checked, but that would probably fail too because the stream task and the InputStream seem mostly unaware of each other is:
+	 *  getting the stream task, then getting the InputStream from it, then reading first from the stream task, then from the InputStream. */
 //	func testReadFromURLStreamAndStreamAsInputStream() throws {
 //		let group = DispatchGroup()
 //		let delegate = SessionDelegate(group)

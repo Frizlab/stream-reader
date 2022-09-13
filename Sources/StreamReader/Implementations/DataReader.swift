@@ -52,8 +52,8 @@ public final class DataReader : StreamReader {
 		
 		return try sourceData.withUnsafeBytes{ bytes in
 			let sizeToRead = sizeConstrainedToRemainingAllowedSizeToRead(size)
-			/* Only possibility for bytes.baseAddress to be nil is if data is empty which makes currentReadPosition and
-			 * size to read being different than 0 theoratically impossible.
+			/* Only possibility for bytes.baseAddress to be nil is if data is empty
+			 *  which makes currentReadPosition and size to read being different than 0 theoratically impossible.
 			 * This assert validates the flatMap we have in the raw buffer pointer creation on next line. */
 			assert(bytes.baseAddress != nil || (currentReadPosition == 0 && sizeToRead == 0), "INTERNAL LOGIC ERROR")
 			let ret = UnsafeRawBufferPointer(start: bytes.baseAddress.flatMap{ $0 + currentReadPosition }, count: sizeToRead)
@@ -67,7 +67,7 @@ public final class DataReader : StreamReader {
 		
 		if delimiters.count == 0 || (!failIfNotFound && delimiters.count == 1 && delimiters[0] == Data()) {
 			/* When there are no delimiters or if there is only one delimiter which is empty and we do not fail if we do not find the delimiter,
-			 * we simply read the stream to the end.
+			 *  we simply read the stream to the end.
 			 * There may be more optimization possible, but we don’t care for now. */
 			return try readData(size: sizeToEnd, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, Data()) })
 		}
