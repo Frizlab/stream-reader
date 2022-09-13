@@ -55,9 +55,22 @@ internal func matchDelimiters(inData data: UnsafeRawBufferPointer, dataStartOffs
 		}
 	}
 	
+	/* Let’s early bail in more cases. */
+	switch matchingMode {
+		case .shortestDataWins:
+			/* If the minimum delimiter length is 1 (all the delimiters have a length of 1 or 0),
+			 *  the best delimiter that has matched yet is necessarily the correct one. */
+			guard minDelimiterLength > 1 else {
+				return findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode)
+			}
+			
+		default:
+			(/*No known optimizations for the other cases yet, but I’m sure there are plenty.*/)
+	}
+	
 	/* Let's search for a confirmed match.
 	 * We can only do that if all the delimiters have been matched.
-	 * All other obvious cases have been taken care of above. */
+	 * All other early bail cases have been taken care of above. */
 	guard unmatchedDelimiters.count == 0 else {return nil}
 	return findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode)
 }
