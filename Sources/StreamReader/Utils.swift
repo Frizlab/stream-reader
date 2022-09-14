@@ -103,22 +103,3 @@ internal func findBestMatch(fromMatchedDatas matchedDatas: [Match], usingMatchin
 		case .firstMatchingDelimiterWins: return matchedDatas.reduce(firstMatchedData, { $0.delimiterIdx < $1.delimiterIdx ? $0 : $1 })
 	}
 }
-
-/* swift-corelibs-foundation is drunk, so we use our own first range, with blackjacks and hookers! */
-internal func awesomeFirstRange(_ haystack: UnsafeRawBufferPointer, _ needle: Data) -> Range<Data.Index>? {
-#if !os(macOS) && !os(tvOS) && !os(iOS) && !os(watchOS)
-	guard !needle.isEmpty else {return nil}
-	guard !haystack.isEmpty else {return nil}
-	guard needle.count <= haystack.count else {return nil}
-	let start = haystack.baseAddress!
-	let end = haystack.baseAddress!.advanced(by: haystack.count - needle.count)
-	for (idx, curPos) in (start...end).enumerated() {
-		if Data(UnsafeRawBufferPointer(start: curPos, count: needle.count)) == needle {
-			return idx..<(idx + needle.count)
-		}
-	}
-	return nil
-#else
-	return haystack.firstRange(of: needle)
-#endif
-}
