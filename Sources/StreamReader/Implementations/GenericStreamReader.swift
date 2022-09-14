@@ -156,17 +156,18 @@ public final class GenericStreamReader : StreamReader {
 	}
 	
 	public func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool, includeDelimiter: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
-		let (minDelimiterLength, maxDelimiterLength) = delimiters.reduce((delimiters.first?.count ?? 0, 0), { (min($0.0, $1.count), max($0.1, $1.count)) })
+		let delimiters = cleanupDelimiters(delimiters, forMatchingMode: matchingMode, includingDelimiter: includeDelimiter)
 		
-		var unmatchedDelimiters = Array(delimiters.enumerated())
-		var matchedDatas = [Match]()
+		var bestMatch: Match?
+		var unmatchedDelimiters = Array(delimiters.filter{ !$0.isEmpty }.enumerated())
+		let (minDelimiterLength, maxDelimiterLength) = (unmatchedDelimiters.map(\.element.count).min() ?? 0, unmatchedDelimiters.map(\.element.count).max() ?? 0)
 		
 		var searchOffset = 0
 		repeat {
 			assert(bufferValidLength - searchOffset >= 0, "INTERNAL LOGIC ERROR")
 			let bufferStart = buffer + bufferStartPos
 			let bufferSearchData = UnsafeRawBufferPointer(start: bufferStart + searchOffset, count: bufferValidLength - searchOffset)
-			if let match = matchDelimiters(inData: bufferSearchData, dataStartOffset: searchOffset, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
+			if let match = matchDelimiters(inData: bufferSearchData, dataStartOffset: searchOffset, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, bestMatch: &bestMatch) {
 				if updateReadPosition {
 					bufferStartPos += match.length
 					bufferValidLength -= match.length
@@ -186,7 +187,7 @@ public final class GenericStreamReader : StreamReader {
 			assert(sizeRead >= 0)
 		} while true
 		
-		if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
+		if let match = bestMatch {
 			let ret = try handler(UnsafeRawBufferPointer(start: buffer + bufferStartPos, count: match.length), delimiters[match.delimiterIdx])
 			if updateReadPosition {
 				bufferStartPos += match.length

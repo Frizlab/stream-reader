@@ -64,29 +64,30 @@ public final class DataReader : StreamReader {
 	
 	public func readData<T>(upTo delimiters: [Data], matchingMode: DelimiterMatchingMode, failIfNotFound: Bool, includeDelimiter: Bool, updateReadPosition: Bool, _ handler: (UnsafeRawBufferPointer, Data) throws -> T) throws -> T {
 		let sizeToEnd = sizeToAllowedEnd
+		let delimiters = cleanupDelimiters(delimiters, forMatchingMode: matchingMode, includingDelimiter: includeDelimiter)
 		
-		if delimiters.count == 0 || (!failIfNotFound && delimiters.count == 1 && delimiters[0] == Data()) {
+		if delimiters.isEmpty || (!failIfNotFound && delimiters.count == 1 && delimiters[0] == Data()) {
 			/* When there are no delimiters or if there is only one delimiter which is empty and we do not fail if we do not find the delimiter,
 			 *  we simply read the stream to the end.
 			 * There may be more optimization possible, but we don’t care for now. */
 			return try readData(size: sizeToEnd, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, Data()) })
 		}
 		
-		var unmatchedDelimiters = Array(delimiters.enumerated())
-		let minDelimiterLength = delimiters.map{ $0.count }.min() ?? 0
-		var matchedDatas = [Match]()
+		var bestMatch: Match?
+		var unmatchedDelimiters = Array(delimiters.filter{ !$0.isEmpty }.enumerated())
+		let minDelimiterLength = unmatchedDelimiters.map(\.element.count).min() ?? 0
 		
 		return try sourceData.withUnsafeBytes{ bytes in
 			assert(bytes.baseAddress != nil || currentReadPosition == 0)
 			let searchedData = UnsafeRawBufferPointer(start: bytes.baseAddress.flatMap{ $0 + currentReadPosition }, count: sizeToEnd)
-			if let match = matchDelimiters(inData: searchedData, dataStartOffset: 0, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, matchedDatas: &matchedDatas) {
+			if let match = matchDelimiters(inData: searchedData, dataStartOffset: 0, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, bestMatch: &bestMatch) {
 				return try readData(size: match.length, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}
 			/* matchDelimiters did not find an indisputable match.
 			 * However, we have fed all the data we have to it.
 			 * We cannot find more matches!
 			 * We simply return the best match we got. */
-			if let match = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode) {
+			if let match = bestMatch {
 				return try readData(size: match.length, allowReadingLess: false, updateReadPosition: updateReadPosition, { ret in try handler(ret, delimiters[match.delimiterIdx]) })
 			}
 			if failIfNotFound {
