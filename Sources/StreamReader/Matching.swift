@@ -67,8 +67,9 @@ internal func matchDelimiters(inData data: UnsafeRawBufferPointer, dataStartOffs
 		/* Reversed enumeration in order to be able to remove an element from the unmatchedDelimiters array while still enumerating it and keeping valid indexes. */
 		for (delimiterIdx, delimiter) in unmatchedDelimiters.enumerated().reversed() {
 			let delimiterLength = delimiter.element.count
-			/* If the delimiter is empty or bigger than the remaining space it cannot match. */
-			guard delimiterLength > 0 else {continue}
+			/* If the delimiter is empty or bigger than the remaining space it cannot match.
+			 * Emtpy delimiters are filtered before. */
+			assert(delimiterLength > 0)
 			guard delimiterLength <= curRemainingSpace else {
 				/* The delimiter is too big to compare to the whole data.
 				 * If the delimiter is a potential match (the data available is a prefix of the delimiter),
