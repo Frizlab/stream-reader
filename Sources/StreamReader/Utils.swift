@@ -13,59 +13,76 @@ internal struct Match {
 	
 	var length: Int
 	var delimiterIdx: Int
+	var delimiterLength: Int
 	
 }
 
 /* Returns nil if no confirmed matches were found, the length of the matched data otherwise. */
 internal func matchDelimiters(inData data: UnsafeRawBufferPointer, dataStartOffset: Int, usingMatchingMode matchingMode: DelimiterMatchingMode, includeDelimiter: Bool, minDelimiterLength: Int, withUnmatchedDelimiters unmatchedDelimiters: inout [(offset: Int, element: Data)], matchedDatas: inout [Match]) -> Match? {
-	/* Reversed enumeration in order to be able to remove an element from the unmatchedDelimiters array while still enumerating it and keeping valid indexes. */
-	for enumeratedDelimiter in unmatchedDelimiters.enumerated().reversed() {
-		/* When Linux is not drunk anymore, we will be using data.firstRange(of: enumeratedDelimiter.element.element) */
-		if let range = awesomeFirstRange(data, enumeratedDelimiter.element.element) {
-			/* Found one of the delimiter. Let's see what we do with it… */
-			let matchedLength = dataStartOffset + range.lowerBound + (includeDelimiter ? enumeratedDelimiter.element.element.count : 0)
-			let match = Match(length: matchedLength, delimiterIdx: enumeratedDelimiter.element.offset)
-			switch matchingMode {
-				case .anyMatchWins:
-					/* We found a match.
-					 * With this matching mode, this is enough!
-					 * We simply return here the data we found, no questions asked. */
-					return match
-					
-				case .shortestDataWins:
-					/* We're searching for the shortest match.
-					 * A match of 0 is necessarily the shortest!
-					 * So we can return straight away when we find a 0-length match. */
-					guard matchedLength > (includeDelimiter ? minDelimiterLength : 0) else {return match}
-					/* TODO: There are other cases where we can say with certainty a match is the match w/o having to have all the delimiters matched for this matching mode. */
-					unmatchedDelimiters.remove(at: enumeratedDelimiter.offset)
-					matchedDatas.append(match)
-					
-				case .longestDataWins:
-					unmatchedDelimiters.remove(at: enumeratedDelimiter.offset)
-					matchedDatas.append(match)
-					
-				case .firstMatchingDelimiterWins:
-					/* We're searching for the first matching delimiter.
-					 * If the first delimiter matches, we can return the matched data straight away. */
-					guard match.delimiterIdx > 0 else {return match}
-					unmatchedDelimiters.remove(at: enumeratedDelimiter.offset)
-					matchedDatas.append(match)
-			}
-		}
+	guard minDelimiterLength > 0, data.count >= minDelimiterLength else {
+		/* No need to search if all the delimiters are empty or if there are less data than the minimum delimiter length: nothing matches. */
+		return nil
 	}
 	
-	/* Let’s early bail in more cases. */
-	switch matchingMode {
-		case .shortestDataWins:
-			/* If the minimum delimiter length is 1 (all the delimiters have a length of 1 or 0),
-			 *  the best delimiter that has matched yet is necessarily the correct one. */
-			guard minDelimiterLength > 1 else {
-				return findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode)
+	/* We implement the search ourselves to be able to early bail when possible. */
+	let start = data.baseAddress!
+	let end = data.baseAddress!.advanced(by: data.count - minDelimiterLength)
+	for (curDataIdx, curPos) in (start...end).enumerated() {
+		let curRemainingSpace = data.count - curDataIdx
+		assert(curRemainingSpace > 0) /* minDelimiterLength is >0, so there should always be at least 1 byte available. */
+		/* Reversed enumeration in order to be able to remove an element from the unmatchedDelimiters array while still enumerating it and keeping valid indexes. */
+		for (delimiterIdx, delimiter) in unmatchedDelimiters.enumerated().reversed() {
+			let delimiterLength = delimiter.element.count
+			/* TODO: Is it as efficient to do the test below or test for >0 and <=curRemainingSpace? */
+			/* If the delimiter is empty or bigger than the remaining space it cannot match. */
+			guard (1...curRemainingSpace).contains(delimiterLength) else {
+				/* TODO: Should we remove the delimiters that cannot match anymore to avoid processing them for each bytes? */
+				continue
 			}
-			
-		default:
-			(/*No known optimizations for the other cases yet, but I’m sure there are plenty.*/)
+			if Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: curPos), count: delimiterLength, deallocator: .none) == delimiter.element {
+				/* We have a match! */
+				let matchedLengthNoDelimiter = dataStartOffset + curDataIdx
+				let match = Match(length: matchedLengthNoDelimiter + (includeDelimiter ? delimiterLength : 0), delimiterIdx: delimiter.offset, delimiterLength: delimiter.element.count)
+				unmatchedDelimiters.remove(at: delimiterIdx) /* Probably triggers CoW. Should we do better? */
+				matchedDatas.append(match)
+				
+				/* Obvious use cases where we can return the match at once. */
+				switch matchingMode {
+					case .anyMatchWins:
+						return match
+						
+					case .shortestDataWins:
+						if matchedLengthNoDelimiter == 0 {
+							return match
+						}
+						
+					case .firstMatchingDelimiterWins:
+						if delimiter.offset == 0 {
+							return match
+						}
+						/* No need to keep the delimiters whose offset is >delimiter.offset; we know we won’t choose them.
+						 * Note: The removal will be applied at the next byte check (the enumeration of unmatchedDelimiters enumerates on a copy). */
+						unmatchedDelimiters.removeAll{ $0.offset > delimiter.offset }
+						
+					case .longestDataWins:
+						(/* No early bail possible here. */)
+				}
+			}
+		}
+		/* Let’s see if we have enough info to bail early. */
+		switch matchingMode {
+			case .shortestDataWins:
+				let minUnmatchedDelimitersLength = unmatchedDelimiters.reduce(unmatchedDelimiters.first?.element.count ?? 0, { min($0, $1.element.count) })
+				let minMatchedDeleimitersLength = matchedDatas.reduce(matchedDatas.first?.delimiterLength ?? 0, { min($0, $1.delimiterLength) })
+				if minUnmatchedDelimitersLength <= minMatchedDeleimitersLength,
+					let bestMatch = findBestMatch(fromMatchedDatas: matchedDatas, usingMatchingMode: matchingMode)
+				{
+					return bestMatch
+				}
+				
+			case .anyMatchWins, .longestDataWins, .firstMatchingDelimiterWins:
+				(/* No known early bail. */)
+		}
 	}
 	
 	/* Let's search for a confirmed match.
