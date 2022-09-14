@@ -84,6 +84,14 @@ class StreamReaderTests : XCTestCase {
 		}
 	}
 	
+	func testUpToWithSepBiggerThanBuffer() throws {
+		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...1), bufferSizeIncrements: Array(1...1), underlyingStreamReadSizeLimits: [nil]){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			let rd = try reader.readData(upTo: [Data(hexEncoded: "23 45")!], matchingMode: .anyMatchWins, includeDelimiter: true)
+			XCTAssertEqual(rd.data, data[0..<3])
+			XCTAssertFalse(try reader.checkForEOF())
+		}
+	}
+	
 	func testReadInt() throws {
 		try runTest(hexDataString: "01 23 45 67", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
 			let v: Int32 = try reader.readType()
