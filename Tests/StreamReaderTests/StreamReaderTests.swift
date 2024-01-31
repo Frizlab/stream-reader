@@ -2,7 +2,7 @@
  * StreamReaderTests.swift
  * StreamReader
  *
- * Created by François Lamboley on 18/12/2016.
+ * Created by François Lamboley on 2016/12/18.
  */
 
 import Foundation
@@ -30,7 +30,7 @@ class StreamReaderTests : XCTestCase {
 			
 			XCTAssertFalse(try reader.checkForEOF())
 			if !(reader is DataReader) {
-				/* The data reader has always reached EOF */
+				/* The data reader has always reached EOF. */
 				XCTAssertFalse(reader.streamHasReachedEOF)
 			}
 		}
@@ -68,8 +68,7 @@ class StreamReaderTests : XCTestCase {
 			let rd = try reader.readData(upTo: [Data(hexEncoded: "45 67")!, Data(hexEncoded: "89 75 45")!], matchingMode: .longestDataWins, includeDelimiter: true).data
 			XCTAssertEqual(rd, data[0..<4])
 			XCTAssertFalse(try reader.checkForEOF())
-			/* The reader is not at EOF, but underlying stream must be because no
-			 * match for given delimiters, so whole stream must be read. */
+			/* The reader is not at EOF, but underlying stream must be because no match for given delimiters, so whole stream must be read. */
 			XCTAssertTrue(reader.streamHasReachedEOF)
 		}
 	}
@@ -78,8 +77,7 @@ class StreamReaderTests : XCTestCase {
 		try runTest(hexDataString: "01 23 45 67 89", bufferSizes: Array(1...9), bufferSizeIncrements: Array(1...9), underlyingStreamReadSizeLimits: [nil] + Array(1...9)){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
 			XCTAssertThrowsError(try reader.peekData(upTo: [Data(hexEncoded: "45 54")!, Data(hexEncoded: "89 75 45")!], matchingMode: .longestDataWins, includeDelimiter: true))
 			XCTAssertFalse(try reader.checkForEOF())
-			/* The reader is not at EOF, but underlying stream must be because no
-			 * match for given delimiters, so whole stream must be read. */
+			/* The reader is not at EOF, but underlying stream must be because no match for given delimiters, so whole stream must be read. */
 			XCTAssertTrue(reader.streamHasReachedEOF)
 		}
 	}
@@ -186,7 +184,7 @@ class StreamReaderTests : XCTestCase {
 			XCTAssertEqual(try reader.peekData(upTo: [sep], matchingMode: .anyMatchWins, includeDelimiter: false).data, Data(hexEncoded: "01")!)
 			XCTAssertFalse(try reader.checkForEOF())
 			if !(reader is DataReader) {
-				/* The data reader has always reached EOF */
+				/* The data reader has always reached EOF. */
 				XCTAssertFalse(reader.streamHasReachedEOF)
 			}
 		}
@@ -205,7 +203,7 @@ class StreamReaderTests : XCTestCase {
 			XCTAssertEqual(try reader.readData(size: 2), data[0..<2])
 			XCTAssertFalse(try reader.checkForEOF())
 			if !(reader is DataReader) {
-				/* The data reader has always reached EOF */
+				/* The data reader has always reached EOF. */
 				XCTAssertFalse(reader.streamHasReachedEOF)
 			}
 		}
@@ -216,7 +214,7 @@ class StreamReaderTests : XCTestCase {
 			XCTAssertEqual(try reader.readData(size: 4), data[0..<4])
 			XCTAssertFalse(try reader.checkForEOF())
 			if !(reader is DataReader) {
-				/* The data reader has always reached EOF */
+				/* The data reader has always reached EOF. */
 				XCTAssertFalse(reader.streamHasReachedEOF)
 			}
 		}
@@ -228,7 +226,7 @@ class StreamReaderTests : XCTestCase {
 			XCTAssertEqual(try reader.readData(size: 4), data[4..<8])
 			XCTAssertFalse(try reader.checkForEOF())
 			if !(reader is DataReader) {
-				/* The data reader has always reached EOF */
+				/* The data reader has always reached EOF. */
 				XCTAssertFalse(reader.streamHasReachedEOF)
 			}
 		}
@@ -240,7 +238,7 @@ class StreamReaderTests : XCTestCase {
 			XCTAssertEqual(d, data[0..<4])
 			XCTAssertFalse(try reader.checkForEOF())
 			if !(reader is DataReader) {
-				/* The data reader has always reached EOF */
+				/* The data reader has always reached EOF. */
 				XCTAssertFalse(reader.streamHasReachedEOF)
 			}
 		}
@@ -258,7 +256,7 @@ class StreamReaderTests : XCTestCase {
 			
 			XCTAssertFalse(try reader.checkForEOF())
 			if !(reader is DataReader) {
-				/* The data reader has always reached EOF */
+				/* The data reader has always reached EOF. */
 				XCTAssertFalse(reader.streamHasReachedEOF)
 			}
 		}
@@ -270,7 +268,7 @@ class StreamReaderTests : XCTestCase {
 			XCTAssertEqual(d, data[0..<4])
 			XCTAssertFalse(try reader.checkForEOF())
 			if !(reader is DataReader) {
-				/* The data reader has always reached EOF */
+				/* The data reader has always reached EOF. */
 				XCTAssertFalse(reader.streamHasReachedEOF)
 			}
 		}
@@ -282,7 +280,7 @@ class StreamReaderTests : XCTestCase {
 			XCTAssertEqual(d, data[0..<7])
 			XCTAssertFalse(try reader.checkForEOF())
 			if !(reader is DataReader) {
-				/* The data reader has always reached EOF */
+				/* The data reader has always reached EOF. */
 				XCTAssertFalse(reader.streamHasReachedEOF)
 			}
 		}
@@ -294,7 +292,7 @@ class StreamReaderTests : XCTestCase {
 			XCTAssertEqual(d, data[0..<4])
 			XCTAssertFalse(try reader.checkForEOF())
 			if !(reader is DataReader) {
-				/* The data reader has always reached EOF */
+				/* The data reader has always reached EOF. */
 				XCTAssertFalse(reader.streamHasReachedEOF)
 			}
 		}
@@ -418,7 +416,7 @@ class StreamReaderTests : XCTestCase {
 		defer {buffer.deallocate()}
 		
 		let fh = try FileHandle(forReadingFrom: tmpFileURL)
-		try fh.close() /* Make the reads following this line fail on purpose */
+		try fh.close() /* Make the reads following this line fail on purpose. */
 		
 		XCTAssertThrowsError(try fh.read(buffer, maxLength: bufferSize))
 	}
@@ -433,13 +431,13 @@ class StreamReaderTests : XCTestCase {
 	
 	private func runTest(data: Data, readSizeLimits: [Int?] = [nil], bufferSizes: [Int], bufferSizeIncrements: [Int], underlyingStreamReadSizeLimits: [Int?] = [nil], _ testHandler: (StreamReader, Data, Int?, Int?, Int?, Int?) throws -> Void) throws {
 		for readSizeLimit in readSizeLimits {
-			/* Test data reader */
+			/* Test data reader. */
 			try testHandler(DataReader(data: data, readSizeLimit: readSizeLimit), data, readSizeLimit, nil, nil, nil)
 			
 			for bufferSize in bufferSizes {
 				for bufferSizeIncrement in bufferSizeIncrements {
 					for underlyingStreamReadSizeLimit in underlyingStreamReadSizeLimits {
-						/* Test InputStream reader (from data) */
+						/* Test InputStream reader (from data). */
 						let s = InputStream(data: data)
 						s.open(); defer {s.close()}
 						try testHandler(InputStreamReader(stream: s, bufferSize: bufferSize, bufferSizeIncrement: bufferSizeIncrement, readSizeLimit: readSizeLimit, underlyingStreamReadSizeLimit: underlyingStreamReadSizeLimit), data, readSizeLimit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit)
@@ -448,7 +446,7 @@ class StreamReaderTests : XCTestCase {
 						try data.write(to: tmpFileURL)
 						defer {_ = try? FileManager.default.removeItem(at: tmpFileURL)}
 						
-						/* Test FileHandle reader (from file) */
+						/* Test FileHandle reader (from file). */
 						try testHandler(FileHandleReader(stream: FileHandle(forReadingFrom: tmpFileURL), bufferSize: bufferSize, bufferSizeIncrement: bufferSizeIncrement, readSizeLimit: readSizeLimit, underlyingStreamReadSizeLimit: underlyingStreamReadSizeLimit), data, readSizeLimit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit)
 						
 						if #available(tvOS 14.0, iOS 14.0, *) {

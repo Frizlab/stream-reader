@@ -2,7 +2,7 @@
  * StreamReaderError.swift
  * StreamReader
  *
- * Created by François Lamboley on 20/08/2017.
+ * Created by François Lamboley on 2017/08/20.
  */
 
 import Foundation

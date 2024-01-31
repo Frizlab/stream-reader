@@ -2,7 +2,7 @@
  * URLStreamReaderTests.swift
  * StreamReader
  *
- * Created by François Lamboley on 18/12/2016.
+ * Created by François Lamboley on 2016/12/18.
  */
 
 import Foundation

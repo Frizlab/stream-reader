@@ -2,7 +2,7 @@
  * URLSessionStreamTaskReader.swift
  * StreamReader
  *
- * Created by François Lamboley on 26/10/2021.
+ * Created by François Lamboley on 2021/10/26.
  */
 
 import Foundation
@@ -20,7 +20,7 @@ extension URLSessionStreamTask : GenericReadStream {
 		let group = DispatchGroup()
 		group.enter()
 		readData(ofMinLength: 1, maxLength: len, timeout: .infinity, completionHandler: { d, eof, err in
-			/* We don’t need the EOF value */
+			/* We don’t need the EOF value. */
 			data = d
 			error = err
 			group.leave()

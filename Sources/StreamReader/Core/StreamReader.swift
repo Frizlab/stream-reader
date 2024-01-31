@@ -2,8 +2,7 @@
  * StreamReader.swift
  * StreamReader
  *
- * Created by François Lamboley on 12/4/16.
- * Copyright © 2016 frizlab. All rights reserved.
+ * Created by François Lamboley on 2016/12/04.
  */
 
 import Foundation
