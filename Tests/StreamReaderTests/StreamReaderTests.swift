@@ -413,9 +413,11 @@ class StreamReaderTests : XCTestCase {
 		s.open(); defer {s.close()}
 		let reader = InputStreamReader(stream: s, bufferSize: 1024, bufferSizeIncrement: 512, readSizeLimit: nil, underlyingStreamReadSizeLimit: 0)
 		XCTAssertGreaterThan(try reader.readStreamInBuffer(size: 4, allowMoreThanOneRead: false, bypassUnderlyingStreamReadSizeLimit: true), 0)
-		reader.readSizeLimit = 0
-		XCTAssertThrowsError(try reader.readData(size: 1))
-		XCTAssertThrowsError(try reader.readData(upTo: [Data(hexEncoded: "23")!], matchingMode: .anyMatchWins, includeDelimiter: false))
+		reader.readSizeLimit = 1
+		XCTAssertThrowsError(try reader.readData(size: 2))
+		let (checkedData, checkedDelimiter) = try reader.readData(upTo: [Data(hexEncoded: "45")!], matchingMode: .anyMatchWins, includeDelimiter: false)
+		XCTAssertEqual(checkedData,      Data(hexEncoded: "01")!)
+		XCTAssertEqual(checkedDelimiter, Data())
 	}
 	
 	@available(macOS 10.15.4, iOS 13.4, tvOS 13.4, *)
