@@ -45,13 +45,26 @@ public final class GenericStreamReader : StreamReader {
 	public private(set) var currentReadPosition = 0
 	
 	/**
-	 The maximum number of bytes that can be returned by the read methods (when updating read position),
+	 The maximum total number of bytes that can be returned by the read methods (when updating read position),
 	  and also the number of bytes that can be read from the underlying stream.
 	 
 	 Changing this to a greater value will force ``streamHasReachedEOF`` to `false`,
 	  but next read might reach `EOF` directly regardless.
 	 
-	 Changing this to a lower value will not change ``streamHasReachedEOF`` at all. */
+	 Changing this to a lower value will not change ``streamHasReachedEOF`` at all.
+	 
+	 The value sets the _total_ number of bytes allowed to be read.
+	 Let’s see an example, reading a stream whose content is `11 22 33 44 55 66 77 88 99 00` (10 bytes):
+	 - Set the limit to `nil` (no limit);
+	 - Read 5 bytes from the stream -> ok, return `11 22 33 44 55`;
+	 - Set the limit to 7;
+	 - Read 3 bytes from the stream (w/o allowing reading less) -> throws notEnoughData;
+	 - Set the limit to 8;
+	 - Read 3 bytes from the stream (w/o allowing reading less) -> ok, returns `66 77 88`;
+	 - Read data up to delimiter `99`, excluding the delimiter, w/o failing if not found
+	     -> ok, returns an empty Data, _and an empty delimiter_ (the delimiter was not read as it’s past the read limit);
+	 - Set the limit 9;
+	 - Read data up to delimiter `99`, excluding the delimiter, w/o failing if not found -> ok, returns empty Data and `99` in the delimiter. */
 	public var readSizeLimit: Int? {
 		didSet {
 			if readSizeLimit ?? Int.max > oldValue ?? Int.max {
@@ -162,11 +175,13 @@ public final class GenericStreamReader : StreamReader {
 		var unmatchedDelimiters = Array(delimiters.filter{ !$0.isEmpty }.enumerated())
 		let (minDelimiterLength, maxDelimiterLength) = (unmatchedDelimiters.map(\.element.count).min() ?? 0, unmatchedDelimiters.map(\.element.count).max() ?? 0)
 		
+		let allowedToBeRead = readSizeLimit.flatMap{ $0 - currentReadPosition } ?? .max
+		
 		var searchOffset = 0
 		repeat {
 			assert(bufferValidLength - searchOffset >= 0, "INTERNAL LOGIC ERROR")
 			let bufferStart = buffer + bufferStartPos
-			let bufferSearchData = UnsafeRawBufferPointer(start: bufferStart + searchOffset, count: bufferValidLength - searchOffset)
+			let bufferSearchData = UnsafeRawBufferPointer(start: bufferStart + searchOffset, count: min(bufferValidLength - searchOffset, allowedToBeRead))
 			if let match = matchDelimiters(inData: bufferSearchData, dataStartOffset: searchOffset, usingMatchingMode: matchingMode, includeDelimiter: includeDelimiter, minDelimiterLength: minDelimiterLength, withUnmatchedDelimiters: &unmatchedDelimiters, bestMatch: &bestMatch) {
 				if updateReadPosition {
 					bufferStartPos += match.length
@@ -202,13 +217,13 @@ public final class GenericStreamReader : StreamReader {
 		}
 		
 		/* No match, no error on no match, we return the whole data. */
-		let returnedLength = bufferValidLength
+		let returnedLength = min(bufferValidLength, allowedToBeRead)
 		let bufferStart = buffer + bufferStartPos
 		
 		if updateReadPosition {
-			currentReadPosition += bufferValidLength
-			bufferStartPos += bufferValidLength
-			bufferValidLength = 0
+			bufferStartPos += returnedLength
+			bufferValidLength -= returnedLength
+			currentReadPosition += returnedLength
 		}
 		
 		return try handler(UnsafeRawBufferPointer(start: bufferStart, count: returnedLength), Data())

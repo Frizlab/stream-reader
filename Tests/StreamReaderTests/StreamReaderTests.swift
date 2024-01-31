@@ -415,9 +415,27 @@ class StreamReaderTests : XCTestCase {
 		XCTAssertGreaterThan(try reader.readStreamInBuffer(size: 4, allowMoreThanOneRead: false, bypassUnderlyingStreamReadSizeLimit: true), 0)
 		reader.readSizeLimit = 1
 		XCTAssertThrowsError(try reader.readData(size: 2))
-		let (checkedData, checkedDelimiter) = try reader.readData(upTo: [Data(hexEncoded: "45")!], matchingMode: .anyMatchWins, includeDelimiter: false)
+		let (checkedData, checkedDelimiter) = try reader.readData(upTo: [Data(hexEncoded: "45")!], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: false)
 		XCTAssertEqual(checkedData,      Data(hexEncoded: "01")!)
 		XCTAssertEqual(checkedDelimiter, Data())
+	}
+	
+	func testReadLimitFromDoc() throws {
+		try runTest(hexDataString: "11 22 33 44 55 66 77 88 99 00", bufferSizes: [1, 42], bufferSizeIncrements: Array(1...5), underlyingStreamReadSizeLimits: [nil]){ reader, data, limit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit in
+			try (reader as? GenericStreamReader)?.readStreamInBuffer(size: 42) /* <- This is the clever bit. Setting the buffer size to the same size does the same but does not guarantee it. */
+			XCTAssertEqual(try reader.readData(size: 5, allowReadingLess: false), Data(hexEncoded: "11 22 33 44 55")!)
+			reader.readSizeLimit = 7
+			XCTAssertThrowsError(try reader.readData(size: 3, allowReadingLess: false))
+			reader.readSizeLimit = 8
+			XCTAssertEqual(try reader.readData(size: 3, allowReadingLess: false), Data(hexEncoded: "66 77 88")!)
+			let (checkedData1, checkedDelimiter1) = try reader.readData(upTo: [Data(hexEncoded: "99")!], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: false)
+			XCTAssertEqual(checkedData1,      Data())
+			XCTAssertEqual(checkedDelimiter1, Data())
+			reader.readSizeLimit = 9
+			let (checkedData2, checkedDelimiter2) = try reader.readData(upTo: [Data(hexEncoded: "99")!], matchingMode: .anyMatchWins, failIfNotFound: false, includeDelimiter: false)
+			XCTAssertEqual(checkedData2,      Data())
+			XCTAssertEqual(checkedDelimiter2, Data(hexEncoded: "99")!)
+		}
 	}
 	
 	@available(macOS 10.15.4, iOS 13.4, tvOS 13.4, *)
