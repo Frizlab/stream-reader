@@ -99,26 +99,26 @@ public final class GenericStreamReader : StreamReader {
 	 Cannot be negative.
 	 If 0, the reader is effectively forbidden from reading the underlying stream.
 	 If a read operation is done that would require reading from the stream (not enough data in the buffer), the `streamReadForbidden` error is thrown. */
-	public init(stream: GenericReadStream, bufferSize size: Int, bufferSizeIncrement sizeIncrement: Int, readSizeLimit limit: Int? = nil, underlyingStreamReadSizeLimit streamReadSizeLimit: Int? = nil) {
-		assert(size > 0)
-		assert(sizeIncrement > 0)
-		assert(limit == nil || limit! >= 0)
-		assert(streamReadSizeLimit == nil || streamReadSizeLimit! >= 0)
+	public init(stream: GenericReadStream, bufferSize: Int, bufferSizeIncrement: Int, readSizeLimit: Int? = nil, underlyingStreamReadSizeLimit: Int? = nil) {
+		assert(bufferSize > 0)
+		assert(bufferSizeIncrement > 0)
+		assert(readSizeLimit == nil || readSizeLimit! >= 0)
+		assert(underlyingStreamReadSizeLimit == nil || underlyingStreamReadSizeLimit! >= 0)
 		
-		sourceStream = stream
+		self.sourceStream = stream
 		
-		defaultBufferSize = size
-		bufferSizeIncrement = sizeIncrement
+		self.defaultBufferSize = bufferSize
+		self.bufferSizeIncrement = bufferSizeIncrement
 		
-		buffer = UnsafeMutableRawPointer.allocate(byteCount: size, alignment: MemoryLayout<UInt8>.alignment)
-		bufferSize = size
-		bufferStartPos = 0
-		bufferValidLength = 0
+		self.buffer = UnsafeMutableRawPointer.allocate(byteCount: bufferSize, alignment: MemoryLayout<UInt8>.alignment)
+		self.bufferSize = bufferSize
+		self.bufferStartPos = 0
+		self.bufferValidLength = 0
 		
-		currentStreamReadPosition = 0
+		self.currentStreamReadPosition = 0
 		
-		readSizeLimit = limit
-		underlyingStreamReadSizeLimit = streamReadSizeLimit
+		self.readSizeLimit = readSizeLimit
+		self.underlyingStreamReadSizeLimit = underlyingStreamReadSizeLimit
 	}
 	
 	deinit {

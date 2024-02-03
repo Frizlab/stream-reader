@@ -24,11 +24,11 @@ public final class DataReader : StreamReader {
 	
 	public var readSizeLimit: Int?
 	
-	public init(data: Data, readSizeLimit limit: Int? = nil) {
-		sourceData = data
-		sourceDataSize = sourceData.count
-		currentStreamReadPosition = sourceDataSize
-		readSizeLimit = limit
+	public init(data: Data, readSizeLimit: Int? = nil) {
+		self.sourceData = data
+		self.sourceDataSize = sourceData.count
+		self.currentStreamReadPosition = sourceDataSize
+		self.readSizeLimit = readSizeLimit
 	}
 	
 	public func clearStreamHasReachedEOF() {
