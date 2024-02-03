@@ -175,7 +175,7 @@ public final class GenericStreamReader : StreamReader {
 		var unmatchedDelimiters = Array(delimiters.filter{ !$0.isEmpty }.enumerated())
 		let (minDelimiterLength, maxDelimiterLength) = (unmatchedDelimiters.map(\.element.count).min() ?? 0, unmatchedDelimiters.map(\.element.count).max() ?? 0)
 		
-		let allowedToBeRead = readSizeLimit.flatMap{ $0 - currentReadPosition } ?? .max
+		let allowedToBeRead = readSizeLimit.flatMap{ max(0, $0 - currentReadPosition) } ?? .max
 		
 		var searchOffset = 0
 		repeat {
@@ -258,7 +258,7 @@ public final class GenericStreamReader : StreamReader {
 		/* If we want to read 0 bytes, whether we’ve reached EOF or we are allowed to read more bytes, we can return directly an empty buffer. */
 		guard size > 0 else {return UnsafeRawBufferPointer(start: nil, count: 0)}
 		/* We check reading the given size is allowed. */
-		let allowedToBeRead = readSizeLimit.flatMap{ $0 - currentReadPosition }
+		let allowedToBeRead = readSizeLimit.flatMap{ max(0, $0 - currentReadPosition) }
 		if let allowedToBeRead = allowedToBeRead, allowedToBeRead < size {
 			guard readContraints.allowReadingLess else {
 				throw Err.notEnoughData(wouldReachReadSizeLimit: true)
@@ -360,8 +360,8 @@ public final class GenericStreamReader : StreamReader {
 				let unconstrainedSizeToRead = bufferSize - (bufferStartPos + bufferValidLength)
 				/* But we have to constrain to the size allowed to be read */
 				let sizeAllowedToBeRead: Int
-				if let readSizeLimit = readSizeLimit {sizeAllowedToBeRead = min(readSizeLimit - currentStreamReadPosition, unconstrainedSizeToRead)}
-				else                                 {sizeAllowedToBeRead =                                                unconstrainedSizeToRead}
+				if let readSizeLimit = readSizeLimit {sizeAllowedToBeRead = min(max(0, readSizeLimit - currentStreamReadPosition), unconstrainedSizeToRead)}
+				else                                 {sizeAllowedToBeRead =                                                        unconstrainedSizeToRead}
 				/* And to the underlying stream read size limit */
 				let sizeToRead: Int
 				if let readLimit = underlyingStreamReadSizeLimit {sizeToRead = min(readLimit, sizeAllowedToBeRead)}
