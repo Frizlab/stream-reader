@@ -17,8 +17,6 @@ import XCTest
 
 
 
-#if canImport(SystemPackage) || canImport(System)
-
 class StreamReaderTests : XCTestCase {
 	
 	func testBasicUpToDelimiterRead() throws {
@@ -500,12 +498,14 @@ class StreamReaderTests : XCTestCase {
 						/* Test FileHandle reader (from file). */
 						try testHandler(FileHandleReader(stream: FileHandle(forReadingFrom: tmpFileURL), bufferSize: bufferSize, bufferSizeIncrement: bufferSizeIncrement, readSizeLimit: readSizeLimit, underlyingStreamReadSizeLimit: underlyingStreamReadSizeLimit), data, readSizeLimit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit)
 						
+#if canImport(SystemPackage) || canImport(System)
 						if #available(tvOS 14.0, iOS 14.0, *) {
 							let fd = try FileDescriptor.open(tmpFileURL.path, .readOnly)
 							try fd.closeAfter{
 								try testHandler(FileHandleReader(stream: fd, bufferSize: bufferSize, bufferSizeIncrement: bufferSizeIncrement, readSizeLimit: readSizeLimit, underlyingStreamReadSizeLimit: underlyingStreamReadSizeLimit), data, readSizeLimit, bufferSize, bufferSizeIncrement, underlyingStreamReadSizeLimit)
 							}
 						}
+#endif
 					}
 				}
 			}
@@ -519,5 +519,3 @@ class StreamReaderTests : XCTestCase {
 	}
 	
 }
-
-#endif
