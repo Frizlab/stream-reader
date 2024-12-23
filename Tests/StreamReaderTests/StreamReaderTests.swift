@@ -6,16 +6,18 @@
  */
 
 import Foundation
-#if canImport(System)
-import System
-#else
+#if canImport(SystemPackage)
 import SystemPackage
+#elseif canImport(System)
+import System
 #endif
 import XCTest
 
 @testable import StreamReader
 
 
+
+#if canImport(SystemPackage) || canImport(System)
 
 class StreamReaderTests : XCTestCase {
 	
@@ -517,3 +519,5 @@ class StreamReaderTests : XCTestCase {
 	}
 	
 }
+
+#endif
