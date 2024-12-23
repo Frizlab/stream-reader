@@ -140,7 +140,7 @@ internal func matchDelimiters(inData data: UnsafeRawBufferPointer, dataStartOffs
 		 * Let’s see if we have enough info to bail early. */
 		switch matchingMode {
 			case .shortestDataWins:
-				if let bestMatch, includeDelimiter {
+				if let bestMatch = bestMatch, includeDelimiter {
 					/* We have a match and we include the delimiters (the case where we do not include the delimiter is already taken care of).
 					 * Let’s try to bail early. */
 					
