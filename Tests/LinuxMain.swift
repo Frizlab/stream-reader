@@ -4,8 +4,6 @@ import XCTest
 
 var tests: [XCTestCaseEntry] = [
   testCase([
-  ]),
-  testCase([
             ("testDelimitersCleanupForShortestDataWithoutDelimiter", MatchingTests.testDelimitersCleanupForShortestDataWithoutDelimiter),
             ("testDelimitersCleanupForLongestDataWithDelimiter", MatchingTests.testDelimitersCleanupForLongestDataWithDelimiter),
   ]),
@@ -48,17 +46,8 @@ var tests: [XCTestCaseEntry] = [
             ("testReadErrorFromFileHandle", StreamReaderTests.testReadErrorFromFileHandle),
   ]),
   testCase([
-  ]),
-  testCase([
             ("testDataInitFromHexString", TestHelpersTests.testDataInitFromHexString),
             ("testDataInitFromHexDocCases", TestHelpersTests.testDataInitFromHexDocCases),
-  ]),
-  testCase([
-            ("testReadFromURLStream", URLStreamReaderTests.testReadFromURLStream),
-            ("testReadFromURLStreamAsInputStream", URLStreamReaderTests.testReadFromURLStreamAsInputStream),
-            ("testReadFromURLStreamAndStreamAsInputStream", URLStreamReaderTests.testReadFromURLStreamAndStreamAsInputStream),
-  ]),
-  testCase([
   ]),
 ]
 XCTMain(tests)
