@@ -8,7 +8,7 @@ let package = Package(
 		.library(name: "StreamReader", targets: ["StreamReader"])
 	],
 	targets: [
-		.target(name: "StreamReader"),
+		.target(name: "StreamReader", exclude: ["Conveniences/URLSessionStreamTaskReader.swift"]),
 		.testTarget(name: "StreamReaderTests", dependencies: ["StreamReader"])
 	]
 )
