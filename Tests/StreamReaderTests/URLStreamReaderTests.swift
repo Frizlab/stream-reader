@@ -86,7 +86,8 @@ class URLStreamReaderTests : XCTestCase {
 //		XCTAssertThrowsError(try reader2.readData(size: 1, allowReadingLess: false))
 //	}
 	
-	class SessionDelegate : NSObject, URLSessionDelegate, URLSessionDataDelegate, URLSessionStreamDelegate {
+	/* This is not really Sendable, but we (probably) use it correctly… */
+	fileprivate final class SessionDelegate : NSObject, URLSessionDelegate, URLSessionDataDelegate, URLSessionStreamDelegate {
 		
 		let group: DispatchGroup
 		
@@ -117,5 +118,8 @@ class URLStreamReaderTests : XCTestCase {
 	}
 	
 }
+#if swift(>=5.5)
+extension URLStreamReaderTests.SessionDelegate : @unchecked Sendable {}
+#endif
 
 #endif
