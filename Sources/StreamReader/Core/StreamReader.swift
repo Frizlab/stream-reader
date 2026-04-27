@@ -67,7 +67,7 @@ public protocol StreamReader : AnyObject {
 	 - Parameter size: The size you want to read from the buffer.
 	 - Parameter allowReadingLess: If end of stream (or read size limit) is reached before the required size is read, should we return what can be read?
 	 - Parameter updateReadPosition: If `true`, the `currentReadPosition` will be updated; if `false` it won’t.
-	 - Parameter handler: Use the data inside this hanlder.
+	 - Parameter handler: Use the data inside this handler.
 	 Do **NOT** do any stream operation inside the handler.
 	 - Parameter bytes: A raw buffer pointer to the bytes that have been read.
 	 - Throws: If any error occurs reading the data (including end of stream reached before the given size is read if `allowReadingLess` is `false`), an error is thrown.
@@ -108,7 +108,7 @@ public protocol StreamReader : AnyObject {
 	 - Parameter failIfNotFound: If none of the delimiters are found, should the method throw or return the data up to the end of the stream?
 	 - Parameter includeDelimiter: Should the returned data include the delimiter that matched?
 	 - Parameter updateReadPosition: If `true`, the `currentReadPosition` will be updated; if `false` it won’t.
-	 - Parameter handler: Use the data inside this hanlder.
+	 - Parameter handler: Use the data inside this handler.
 	 Do **NOT** do any stream operation inside the handler.
 	 - Parameter bytes: A raw buffer pointer to the bytes that have been read.
 	 - Parameter delimiterThatMatched: The delimiter that matched to stop reading the stream.

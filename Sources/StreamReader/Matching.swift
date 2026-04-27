@@ -68,7 +68,7 @@ internal func matchDelimiters(inData data: UnsafeRawBufferPointer, dataStartOffs
 		for (delimiterIdx, delimiter) in unmatchedDelimiters.enumerated().reversed() {
 			let delimiterLength = delimiter.element.count
 			/* If the delimiter is empty or bigger than the remaining space it cannot match.
-			 * Emtpy delimiters are filtered before. */
+			 * Empty delimiters are filtered before. */
 			assert(delimiterLength > 0)
 			guard delimiterLength <= curRemainingSpace else {
 				/* The delimiter is too big to compare to the whole data.
